@@ -1,0 +1,477 @@
+---
+title: "Survey Analysis with R - Descriptive Statistics"
+author: "Jemma Nelson and Rian DeFaccio"
+format: pdf
+---
+
+# Survey Descriptive Analysis
+
+This lesson introduces descriptive statistics for survey data analysis in R, focusing on the {survey} and {srvyr} packages. Key topics include:
+
+-   Estimating counts and sums
+-   Estimating means and proportions
+-   Estimating variance components
+-   Estimation within subgroups
+-   Raw sample descriptives
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(survey)
+library(srvyr)
+```
+
+## Data
+
+Here we setup a design object for the Residential Energy Consumption Survey data which we first saw in the prior lesson.
+
+```{r}
+recs_des <- read.csv('../data/recs_2020.csv') %>%
+  as_survey_rep(
+    weights = NWEIGHT,
+    repweights = NWEIGHT1:NWEIGHT60,
+    type = "JK1",
+    scale = 59 / 60,
+    mse = TRUE
+  )
+```
+
+# Descriptive Data Analysis
+
+Descriptive statistics are essential tools for summarizing and understanding survey data. They provide simple quantitative summaries about the sample and the measures collected, such as totals, means, proportions, and variability. In survey analysis, these statistics are estimated using specialized methods that account for complex survey designs, including weights and stratification, to ensure accurate representation of the target population. This section demonstrates how to compute and interpret key descriptive statistics using R's survey analysis tools.
+
+## Types of Data
+
+To begin, we will take an overview of the different types of data we might be looking at when performing a survey analysis.
+
+-   **Categorical (Nominal):** Variables with distinct categories that cannot be ordered, such as region (North, South, East, West).
+-   **Ordinal:** Variables with ordered categories, such as responses on a Likert scale (Strongly Disagree, Disagree, Agree, Strongly Agree).
+-   **Discrete:** Countable variables, such as the number of children in a household.
+-   **Continuous:** Measured variables that can take any value within a range, such as household income.
+
+## Survey Analysis Workflow
+
+The survey analysis workflow provides a structured approach to analyzing complex survey data in R. By following these steps, you ensure that your estimates properly account for survey design features such as weights and replicate weights.
+
+1.  Create a survey design object using `{srvyr}::as_survey_design()` or `{srvyr}::as_survey_rep()`.
+2.  Subset the data for specific subpopulations using `{srvyr}::filter()`, if needed.
+3.  Specify domains of analysis with `{srvyr}::group_by()`, if needed.
+4.  Analyze the data using survey-specific functions such as `survey_mean()`, `survey_total()`, or `survey_prop()`.
+
+### Similarity to {dplyr}
+
+The {srvyr} package is designed to make survey data analysis in R more accessible by providing a syntax that is familiar to users of the {dplyr} package. This design choice helps streamline the workflow for those already comfortable with {tidyverse} tools. Key similarities include:
+
+-   **Pipe-friendly syntax:** Functions in {srvyr} work seamlessly with the `%>%` pipe operator, just like {dplyr}.
+-   **Consistent verbs:** Many {srvyr} functions mirror {dplyr} verbs such as `summarise()`, `mutate()`, `group_by()`, and `filter()`, making the transition straightforward.
+-   **Tidy output:** Results from {srvyr} functions are returned as tibbles, maintaining compatibility with other {tidyverse} packages.
+-   **Chaining operations:** You can chain multiple operations together, allowing for clear and concise code when working with survey data.
+
+This alignment with {dplyr} conventions makes {srvyr} an approachable and powerful tool for analyzing complex survey datasets.
+
+## Counts and Sums
+
+We begin by getting estimates of counts and sums.
+
+### Estimated Count of Households
+
+The functions `survey_count()` and `survey_tally()` provide the estimated total number of households in the population, accounting for survey weights.
+
+Additionaly, we utilize the `kable` function from the {knitr} package which generates basic tables that are easy to include in R Markdown, PDF, and HTML documents. It provides a straightforward way to display data frames and summary tables with minimal formatting, making it useful for quick reporting and reproducible research.
+
+```{r}
+recs_des %>%
+  survey_count() %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+```{r}
+recs_des %>%
+  survey_tally() %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+### Estimated Count by Subgroup
+
+Here we calculate the estimated number of households within each geographical region and division, demonstrating how to stratify counts by categorical variables.
+
+```{r}
+recs_des %>%
+  survey_count(Region, name = "N") %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+We could create a bar chart to display this information using the {ggplot2} package. 
+
+We've included two version of the bar chart:
+
+* The first is a fairly simple display.
+* The second adds more formatting to really make it look presentable. 
+
+Don't worry if you don't understand all of the formatting code at this time. However, let us know if you think the formatting is worth the extra effort!
+
+```{r}
+recs_des %>%
+  survey_count(Region, name = "N") %>%
+  ggplot(aes(x = Region, y = N)) +
+  geom_col()
+```
+
+```{r}
+recs_des %>%
+  survey_count(Region, name = "N") %>%
+  ggplot(aes(x = reorder(Region, N), y = N)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  coord_flip() +
+  scale_y_continuous(labels = scales::comma_format()) +
+  labs(
+    title = "Estimated Number of Households by Region",
+    x = "Region",
+    y = "Number of Households",
+    caption = "Source: RECS 2020 Survey Data"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    plot.caption = element_text(size = 8, color = "gray60")
+  )
+```
+
+Additionally, we can group by more than one variable at a time.
+
+```{r}
+recs_des %>%
+  group_by(Region, Division) %>%
+  survey_tally(name = "N") %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+### Totals Are Sums
+
+-   The `survey_total()` function computes the weighted sum (total) of a variable across the entire survey population, taking into account the survey weights and design.
+-   This is useful for estimating population-level totals, such as the total energy expenditure or total number of households.
+-   When used inside `summarize()`, `survey_total()` returns the estimated total for the specified variable, along with measures of uncertainty (such as standard error or confidence interval, if requested).
+-   For example, `summarize(elec_bill = survey_total(DOLLAREL))` gives the estimated total electricity bill for the population.
+-   The `survey_total()` function calculates weighted sums of variables.
+-   When used without arguments, it returns the estimated population size; when given a variable, it computes the weighted sum of that variable.
+
+```{r}
+recs_des %>%
+  summarize(Tot = survey_total()) %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+```{r}
+recs_des %>%
+  summarize(elec_bill = survey_total(DOLLAREL)) %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+### Summation by Groups
+
+This code demonstrates how to calculate the sum of electricity bills by region, with confidence intervals showing the uncertainty in these estimates.
+
+The `vartype` argument in survey functions controls which measures of uncertainty are returned:
+
+-   "se": Standard Error
+-   "ci": Confidence Interval
+-   "var": Variance
+-   "cv": Coefficient of Variation
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_total(DOLLAREL,
+    vartype = "ci"
+  )) %>%
+  knitr::kable(
+    format.args = list(big.mark = ",")
+  )
+```
+
+To visualize this result, we can build a plot like the following. Again, here we build the simple plot followed by a nicely formatted plot.
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_total(DOLLAREL,
+    vartype = "ci"
+  )) %>%
+  ggplot(aes(x = Region, y = elec_bill)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = elec_bill_low, ymax = elec_bill_upp))
+```
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_total(DOLLAREL,
+    vartype = "ci"
+  )) %>%
+  ggplot(aes(x = reorder(Region, elec_bill), y = elec_bill)) +
+  geom_point(size = 3, color = "steelblue") +
+  geom_errorbar(aes(ymin = elec_bill_low, ymax = elec_bill_upp),
+                width = 0.2, color = "steelblue") +
+  coord_flip() +
+  scale_y_continuous(labels = scales::comma_format()) +
+  labs(
+    title = "Total Electricity Bills by Region with Confidence Intervals",
+    x = "Region",
+    y = "Total Electricity Bills ($)",
+    caption = "Source: RECS 2020 Survey Data"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    plot.caption = element_text(size = 8, color = "gray60")
+  )
+```
+
+## Means and Proportions
+
+In the next section we look at means and proportions
+
+### Proportions
+
+Below we show how to calculate the proportion of households in each region (which sum to 1). The `survey_prop()` and `survey_mean()` functions produce identical results when used with categorical variables in a grouped context.
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(p = survey_prop()) %>%
+  mutate(
+    p_se = ifelse(p_se < 0.001, "<0.001", p_se)
+  ) %>%
+  knitr::kable(
+    digits = 3,
+    format.args = list(big.mark = ",", nsmall = 3)
+  )
+```
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(p = survey_mean()) %>%
+  mutate(
+    p_se = ifelse(p_se < 0.001, "<0.001", p_se)
+  ) %>%
+  knitr::kable(
+    digits = 3,
+    format.args = list(big.mark = ",", nsmall = 3)
+  )
+```
+
+#### Conditional Proportions
+
+This example calculates the proportion of households that use air conditioning within each region. The proportions sum to 1 within each region, showing the distribution of AC usage by geographical area.
+
+```{r}
+recs_des %>%
+  group_by(Region, ACUsed) %>%
+  summarize(p = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+To make a visualization this time we will utilize facetting!
+
+```{r}
+recs_des %>%
+  group_by(Region, ACUsed) %>%
+  summarize(p = survey_prop()) %>%
+  ggplot(aes(x = Region, y = p)) +
+  geom_col(position = "dodge", alpha = 0.8) +
+  facet_wrap(~ACUsed, labeller = labeller(ACUsed = function(x) paste("AC Used:", x))) +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_brewer(type = "qual", palette = "Set2") +
+  labs(
+    title = "Proportion of Households by Region and Air Conditioning Usage",
+    x = "Region",
+    y = "Proportion",
+    fill = "AC Used",
+    caption = "Source: RECS 2020 Survey Data"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12),
+    plot.caption = element_text(size = 8, color = "gray60"),
+    strip.text = element_text(size = 11, face = "bold")
+  )
+```
+
+#### Joint Proportions
+
+The `interact()` function creates joint categories from multiple variables. This approach calculates the overall proportion for each region-AC usage combination in the total population.
+
+```{r}
+recs_des %>%
+  group_by(interact(Region, ACUsed)) %>%
+  summarize(p = survey_prop()) %>%
+  knitr::kable(
+    digits = 3,
+    format.args = list(big.mark = ",", nsmall = 3)
+  )
+```
+
+## Both CI and SE
+
+This example shows how to request both standard errors and confidence intervals simultaneously when calculating estimates, providing multiple measures of precision.
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_mean(DOLLAREL,
+    vartype = c("se", "ci")
+  ))  %>%
+  knitr::kable(
+    digits = 2,
+    format.args = list(big.mark = ",", nsmall = 2)
+  )
+```
+
+## Quantiles
+
+Another statistic we may be interested in is quantiles.
+
+### Quantiles and Medians
+
+Quantiles help understand the distribution of a variable. This code calculates the 25th, 50th (median), and 75th percentiles of electricity bills across the population.
+
+```{r}
+recs_des %>%
+  summarize(elec_bill = survey_quantile(DOLLAREL,
+    quantiles = c(0.25, .5, 0.75)
+  )) %>%
+  mutate(
+    across(
+      ends_with('_se'),
+      ~round(., 2)
+    )
+  ) %>%
+  knitr::kable(
+    format.args = list(
+      big.mark = ",", 
+      nsmall = 2
+    )
+  )
+```
+
+#### Quantiles by Subgroup
+
+This extends the previous example by calculating quartiles of electricity bills separately for each region, enabling comparison of distributions across geographical areas.
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_quantile(DOLLAREL,
+    quantiles = c(0.25, .5, 0.75)
+  )) %>%
+  mutate(
+    across(
+      contains('elec'),
+      ~round(., 2)
+    )
+  ) %>%
+  knitr::kable(
+    format.args = list(
+      big.mark = ",", 
+      nsmall = 2
+    )
+  )
+```
+
+#### Min and Max Using Quantiles
+
+Setting the quantiles to 0 and 1 provides the minimum and maximum values in the weighted dataset, showing the full range of the variable.
+
+```{r}
+recs_des %>%
+  summarize(elec_bill = 
+    survey_quantile(DOLLAREL,
+      quantiles = c(0, 1),
+      vartype = NULL
+   )
+  )  %>%
+  mutate(
+    across(
+      contains('elec'),
+      ~round(., 2)
+    )
+  ) %>%
+  knitr::kable(
+    format.args = list(
+      big.mark = ",", 
+      nsmall = 2
+    )
+  )
+```
+
+#### Median Convenience Function
+
+The `survey_median()` function is a shorthand for calculating the 50th percentile, making it easier to find the middle value of a distribution.
+
+```{r}
+recs_des %>%
+  summarize(elec_bill = survey_median(DOLLAREL)) %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(elec_bill = survey_median(DOLLAREL)) %>%
+  knitr::kable(format.args = list(big.mark = ","))
+```
+
+## Ratios
+
+This section demonstrates how to calculate the ratio between two variables (cost per unit of energy) and compares it to the average of individual ratios, highlighting the difference between these two approaches.
+
+```{r}
+recs_des %>%
+  summarize(
+    DOLLARLP_Tot = survey_total(DOLLARLP, vartype = NULL),
+    BTULP_Tot    = survey_total(BTULP, vartype = NULL),
+    DOL_BTU_Rat  = survey_ratio(DOLLARLP, BTULP),
+    DOL_BTU_Avg  = survey_mean(DOLLARLP / BTULP, na.rm = TRUE)
+  ) %>%
+  knitr::kable(digits = 4)
+```
+
+> Interpretation: The ratio of the total spent on liquid propane to the total consumption was 0.0208, but the average rate was 0.024. With a bit of calculation, we can show that the ratio is the ratio of the totals `DOLLARLP_Tot`/`BTULP_Tot`=8,122,911,173/391,425,311,586=0.0208. Although the estimated ratio can be calculated manually in this manner, the standard error requires the use of the `survey_ratio()` function. The average can be interpreted as the average rate paid by a household.
+
+### Ratios by Subgroup
+
+Here we calculate the ratio of liquid propane cost to consumption by region and sort the results, allowing us to compare regional differences in energy pricing.
+
+```{r}
+recs_des %>%
+  group_by(Region) %>%
+  summarize(DOL_BTU_Rat = survey_ratio(DOLLARLP, BTULP)) %>%
+  arrange(DOL_BTU_Rat) %>%
+  knitr::kable(digits = 4)
+```
+
+## Unweighted Analysis
+
+This example contrasts the weighted population estimate with the unweighted sample average, demonstrating how survey weights adjust results to better represent the target population.
+
+```{r}
+recs_des %>%
+  summarize(
+    elec_bill = survey_mean(DOLLAREL),
+    elec_unweight = unweighted(mean(DOLLAREL))
+  ) %>%
+  knitr::kable(digits = 2)
+```
+
+# Conclusion
+
+In this lesson, we explored how to perform descriptive statistics on survey data in R using the {survey} and {srvyr} packages. We covered essential techniques for estimating counts, sums, means, proportions, quantiles, and ratios, all while accounting for complex survey designs and weights. By leveraging these tools, you can generate accurate, representative summaries of survey data and gain valuable insights into your population of interest. Mastery of these methods forms a strong foundation for more advanced survey analysis and inference.

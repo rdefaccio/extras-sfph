@@ -1,0 +1,220 @@
+---
+title: "Lab: Survey Analysis Introduction"
+author: "Student Name"
+format: pdf
+---
+
+<br>
+
+## Survey Data Analysis Fundamentals
+---
+
+In this lab, you will practice working with different types of datasets to understand the distinction between samples, censuses, and experimental data. You will also create survey design objects and explore the importance of weights in survey analysis.
+
+<br>
+
+### 0. Conceptual Questions
+
+Below are some key conceptual questions about survey sampling. For each example, decide whether it describes clustering or stratification.
+
+**What is the difference between stratification and clustering in survey sampling?**  
+ 
+**Answer here:**  
+
+**For each of the following sampling scenarios, indicate whether it is an example of clustering or stratification:**  
+
+a. A national health survey divides the country into urban and rural regions and samples separately from each region.  
+**Answer here:**  
+
+b. A school survey randomly selects several schools, then surveys all students within those schools.  
+**Answer here:**  
+
+c. A company surveys employees by first dividing them into departments and then sampling from each department.  
+**Answer here:**  
+
+d. A researcher selects several city blocks at random and surveys every household on those blocks.  
+**Answer here:**  
+
+e. A national education survey divides schools into public and private, then randomly selects several schools from each group and surveys all students within those schools.  
+**Answer here:**  
+
+**Why are survey weights important when analyzing survey data?**  
+
+**Answer here:** 
+
+**What is the purpose of replicate weights in survey analysis?**  
+
+**Answer here:** 
+
+**How does using a survey design object (like with the `srvyr` or `survey` package) affect your analysis compared to using raw data?**  
+
+**Answer here:** 
+
+**Data Type Classification**
+
+For each of the following hypothetical datasets, determine whether it represents a **sample**, **census**, or **experiment**. Write your answer and brief justification below each description.
+
+**Dataset A: National COVID-19 Vaccination Study**  
+Researchers want to understand vaccination rates and attitudes across the United States. They randomly select 15,000 adults from all 50 states using a complex sampling design that ensures representation across age groups, income levels, and geographic regions. Each selected individual receives a phone survey asking about their vaccination status, reasons for getting or not getting vaccinated, and demographic information. The researchers use statistical weights to ensure their findings represent the entire U.S. adult population of approximately 250 million people.
+
+**Your classification:**  
+**Answer:**  
+**Justification:** 
+
+**Dataset B: Clinical Trial for New Diabetes Medication**  
+A pharmaceutical company recruits 800 participants with Type 2 diabetes from medical clinics across the country. Participants are randomly assigned to receive either the new medication or a placebo for 12 months. Researchers carefully control the dosage, timing, and administration of treatments. They measure blood sugar levels, weight changes, and side effects at regular intervals. All participants meet specific inclusion criteria (age 35-70, diagnosed with Type 2 diabetes for at least 2 years, not currently using insulin).
+
+**Your classification:**  
+**Answer:** 
+**Justification:** 
+
+**Dataset C: Complete University Enrollment Records**  
+State University maintains a comprehensive database of all 45,000 currently enrolled students. The database includes every student's major, GPA, credit hours, tuition payments, demographic information, and academic history. The university uses this data to analyze graduation rates, identify students at risk of dropping out, and plan resource allocation. No sampling is involved - every single enrolled student's complete record is included in the analysis.
+
+**Your classification:**  
+**Answer:** 
+**Justification:**
+
+**Dataset D: Consumer Spending Behavior Survey**  
+A market research firm wants to understand how American households spend money on entertainment. They obtain a list of all U.S. households from the Census Bureau and randomly select 5,000 households to participate in a monthly spending diary study. Selected households track all entertainment expenses (movies, streaming services, concerts, gaming, etc.) for six months. The research firm assigns weights to each household based on their probability of selection and demographic characteristics to ensure the results represent all 130 million U.S. households.
+
+**Your classification:**  
+**Answer:** 
+**Justification:** 
+
+### 1. Load Libraries and Data
+
+Load the required packages and import the ANES 2020 dataset that we'll be working with.
+
+```{r}
+# LOAD REQUIRED LIBRARIES
+
+
+
+```
+
+```{r}
+# IMPORT THE ANES 2020 DATA FROM THE DATA FOLDER
+# SAVE AS: anes_data
+
+```
+
+```{r}
+# EXAMINE THE BASIC STRUCTURE OF THE DATA
+# DISPLAY: dimensions and first few rows
+
+
+```
+
+<br>
+
+### 2. Understanding the Target Population
+
+The ANES 2020 survey aims to represent the U.S. citizen population who are 18 years or older and eligible to vote. According to the U.S. Census Bureau, this population was approximately 240 million people in 2020. We need to store this value as it will be important for our survey design.
+
+```{r}
+# CREATE A VARIABLE FOR THE TARGET POPULATION SIZE
+# SAVE AS: us_adult_pop_2020
+# SET VALUE: 240000000
+
+```
+
+```{r}
+# DISPLAY THE TARGET POPULATION
+
+```
+
+<br>
+
+### 3. Exploring Survey Design Variables
+
+#### Weights
+
+Using the ANES 2020 data, we need to adjust the weighting variable (`V200010b`) using the previously calculated population of interest. The process involves determining the proportion of the total weight for each individual weight (`V200010b / sum(V200010b)`) and then multiplying that proportion by the calculated population of interest. This adjustment ensures that the survey weights properly represent the target population when we create our survey design object.
+
+Let's examine the key variables needed to specify the ANES survey design according to the documentation.
+
+```{r}
+# EXAMINE THE SURVEY WEIGHT VARIABLE (V200010b) 
+# DISPLAY: summary statistics
+
+```
+
+```{r}
+# CALCULATE ADJUSTED WEIGHTS USING THE TARGET POPULATION
+# FORMULA: (V200010b / sum(V200010b)) * target_pop_2020
+# SAVE AS: adjusted_weights
+
+```
+
+```{r}
+# ADD THE ADJUSTED WEIGHTS TO THE DATASET
+# SAVE AS: weight_adj
+
+```
+
+```{r}
+# VERIFY THE ADJUSTED WEIGHTS SUM TO TARGET POPULATION
+# DISPLAY: sum of adjusted weights
+
+```
+
+#### Stratum
+
+The variable `V200010d` in the ANES 2020 dataset represents the strata used in the survey design. Strata are groups within the population that are sampled separately to ensure representation across key subgroups. When specifying the survey design, you will use `V200010d` to indicate which stratum each respondent belongs to.
+
+```{r}
+# EXAMINE THE STRATUM VARIABLE (V200010c)
+# DISPLAY: unique values and their frequencies
+
+# HOW MANY STRATA ARE THERE?
+## 
+```
+
+#### Clusters
+
+Now take a look at the clustering variable.
+
+```{r}
+# EXAMINE THE CLUSTER VARIABLE (V200010c) 
+# DISPLAY: first 10 unique values
+
+```
+
+```{r}
+# COUNT THE NUMBER OF UNIQUE CLUSTERS
+# SAVE AS: num_clusters
+# DISPLAY: num_clusters
+
+
+```
+
+<br>
+
+### 4. Creating the Survey Design Object
+
+Now let's build the design object.
+
+```{r}
+# CREATE THE ANES SURVEY DESIGN OBJECT
+# SAVE AS: anes_design
+
+
+
+
+
+
+```
+
+```{r}
+# EXAMINE THE SURVEY DESIGN OBJECT
+# DISPLAY: anes_design
+
+```
+
+<br>
+
+## Conclusion
+---
+
+In this lab, you explored the fundamentals of survey data analysis, including the differences between samples, censuses, and experiments, as well as key concepts like stratification, clustering, and the importance of survey weights. You learned how to identify and adjust survey weights, examined the structure of a real-world survey dataset, and created a survey design object using R. By properly specifying the survey design, you are now equipped to perform valid analyses that account for complex sampling methods, ensuring your results are representative and your inferences are accurate. These skills form the foundation for more advanced survey analysis and interpretation in future work.

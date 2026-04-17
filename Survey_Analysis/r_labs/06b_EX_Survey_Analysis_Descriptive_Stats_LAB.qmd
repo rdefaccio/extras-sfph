@@ -1,0 +1,323 @@
+---
+title: "Survey Analysis with R - Descriptive Statistics Lab"
+author: "Your Name"
+format: pdf
+---
+
+## Survey Descriptive Statistics Lab
+
+In this lab, you will practice computing descriptive statistics for survey data using the ANES 2020 dataset. You will learn to calculate survey-weighted estimates including counts, sums, means, proportions, and quantiles while accounting for the complex survey design.
+
+Please refer to the codebook when looking up information on variables:
+
+> 🌐[ANES 2020 Time Series Study
+Full Release](https://electionstudies.org/wp-content/uploads/2022/02/anes_timeseries_2020_userguidecodebook_20220210.pdf)
+
+### 1. Load Libraries and Data
+
+Load the required packages and import the ANES 2020 dataset.
+
+```{r}
+# LOAD REQUIRED LIBRARIES
+
+
+
+# remove scientific notation
+options(scipen = 999)
+```
+
+```{r}
+# IMPORT THE ANES 2020 DATA
+# SAVE AS: anes_data
+
+```
+
+```{r}
+# EXAMINE THE BASIC STRUCTURE OF THE DATA
+# DISPLAY: dimensions and first few rows
+
+
+```
+
+### 2. Create Survey Design Object
+
+Set up the survey design object to account for weights, strata, and clusters.
+
+```{r}
+# CREATE A VARIABLE FOR THE TARGET POPULATION SIZE
+# SAVE AS: us_adult_pop_2020
+# SET VALUE: 240000000
+
+```
+
+```{r}
+# CALCULATE ADJUSTED WEIGHTS USING THE TARGET POPULATION
+# FORMULA: (V200010b / sum(V200010b)) * us_adult_pop_2020
+# SAVE AS: adjusted_weights
+
+
+```
+
+```{r}
+# ADD THE ADJUSTED WEIGHTS TO THE DATASET
+# SAVE AS: weight_adj (as new column in anes_data)
+
+```
+
+```{r}
+# CREATE THE ANES SURVEY DESIGN OBJECT
+# SAVE AS: anes_design
+# USE:
+# - weights = weight_adj
+# - strata = V200010d
+# - ids = V200010c
+# - nest = TRUE
+
+
+
+
+```
+
+```{r}
+# EXAMINE THE SURVEY DESIGN OBJECT
+# DISPLAY: anes_design
+
+```
+
+### 3. Survey-Weighted Counts and Totals
+
+Calculate basic counts and totals using survey weights.
+
+```{r}
+# CALCULATE THE ESTIMATED TOTAL NUMBER OF RESPONDENTS
+# USE: survey_count() function
+# DISPLAY: result with comma formatting
+```
+
+When you display the estimated counts for the target population, we recommend rounding the estimates to make interpretation easier. Otherwise you have to explain why there are fractional people.
+
+Additionally, remove missing values before performing the counting operation.
+
+```{r}
+# CALCULATE THE ESTIMATED COUNT BY EDUCATIONAL ATTAINMENT
+# SAVE AS: education_counts
+# DISPLAY: with comma formatting
+
+
+
+
+```
+
+```{r}
+# CALCULATE THE ESTIMATED COUNT BY EDUCATION AND GENDER
+# USE: survey_count() function
+# DISPLAY: with comma formatting
+
+
+
+
+
+
+
+
+```
+
+```{r}
+# REDO THE ABOVE ANALYSIS BUT PIVOT RESULTS WIDER
+
+
+
+
+
+
+
+
+```
+
+### 4. Survey-Weighted Means and Proportions
+
+Calculate means for continuous variables and proportions for categorical variables.
+
+```{r}
+# CALCULATE THE PROPORTION OF RESPONDENTS IN EACH EDUCATION LEVEL
+# USE: survey_prop() function
+# DISPLAY: with 3 decimal places
+
+
+
+
+```
+
+```{r}
+# CALCULATE THE MEAN AGE FOR THE ENTIRE POPULATION
+# SAVE RESULT AS: mean_age
+# DISPLAY: mean_age
+
+
+
+```
+
+```{r}
+# CALCULATE THE MEAN AGE BY GENDER
+# SHOW CONFIDENCE INTERVAL
+# DISPLAY: with 2 decimal places
+
+
+
+
+
+
+
+```
+
+```{r}
+# CALCULATE THE PROPORTION WHO VOTED IN 2020
+# DISPLAY: results with standard errors
+
+
+
+
+
+
+
+```
+
+### 5. Survey-Weighted Quantiles
+
+Calculate percentiles and quartiles for continuous variables.
+
+```{r}
+# CALCULATE THE MEDIAN AGE
+# SAVE AS: median_age
+# DISPLAY: median_age
+
+
+
+```
+
+```{r}
+# CALCULATE THE 25th, 50th, AND 75th PERCENTILES OF AGE
+# DISPLAY: results with proper labeling
+
+
+
+
+
+
+```
+
+```{r}
+# CALCULATE AGE QUARTILES BY EDUCATION LEVEL
+# DISPLAY: results with 1 decimal place
+
+
+
+
+
+
+```
+
+### 6. Survey-Weighted Ratios
+
+Calculate ratios between survey estimates.
+
+```{r}
+# CALCULATE THE RATIO OF MEAN AGE BETWEEN COLLEGE GRADS AND NON-GRADS
+# HINT: First create a binary education variable 
+# - (college vs non-college)
+
+
+
+# FIRST COMPARE [Education] vs. [V201510]
+
+```
+
+```{r}
+# NOW UTILIZE [V201510] TO BUILD THE BINARY VARIABLE
+# AND GET MEAN AGE BY COLLEGE OR PRE_COLLEGE
+
+
+
+# VIEW THE DATAFRAME WITH THE MEAN AGES
+
+```
+
+```{r}
+# CALCULATE RATIO
+
+
+
+```
+
+### 7. Comparison: Weighted vs Unweighted Analysis
+
+Compare survey-weighted results with unweighted results to see the difference.
+
+```{r}
+# CALCULATE UNWEIGHTED MEAN AGE
+# SAVE AS: unweighted_mean_age
+# DISPLAY: result
+```
+
+```{r}
+# CALCULATE WEIGHTED MEAN AGE
+# SAVE AS: weighted_mean_age  
+# DISPLAY: result
+```
+
+```{r}
+# COMPARE THE DIFFERENCE BETWEEN WEIGHTED AND UNWEIGHTED ESTIMATES
+# CALCULATE: difference between weighted and unweighted means
+# DISPLAY: the difference and discuss what this suggests
+
+
+```
+
+```{r}
+# CALCULATE UNWEIGHTED EDUCATION PROPORTIONS
+# DISPLAY: results rounded to 3 decimal places
+
+
+```
+
+```{r}
+# CALCULATE WEIGHTED EDUCATION proportions()
+# DISPLAY: results rounded to 3 decimal places
+
+
+
+
+```
+
+```{r}
+# BONUS - PRESENT WEIGHTED AND UNWEIGHTED RESULTS SIDE-BY-SIDE
+# PUT THEM BOTH IN THE SAME TABLE
+
+# Join results into a single table
+
+
+
+
+
+# Display the table
+
+
+
+```
+
+## Conclusion
+
+In this lab, you practiced computing survey-weighted descriptive statistics using the ANES 2020 dataset. You learned to calculate counts, means, proportions, quantiles, and ratios while properly accounting for the complex survey design through weights, strata, and clusters.
+
+Key takeaways:
+- Survey-weighted estimates provide population-representative results
+- Unweighted analysis can lead to biased estimates that don't reflect the target population
+- The survey design object is essential for proper variance estimation
+- Different types of descriptive statistics require different survey functions
+
+### Summary of Functions Used
+- `survey_count()` and `survey_tally()` for weighted counts
+- `survey_mean()` for weighted means 
+- `survey_prop()` for weighted proportions
+- `survey_quantile()` for weighted percentiles
+- `survey_ratio()` for ratios between estimates

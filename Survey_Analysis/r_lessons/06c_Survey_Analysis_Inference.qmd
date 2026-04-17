@@ -1,0 +1,612 @@
+---
+title: "Survey Analysis with R - Inferential Statistics"
+author: "Jemma Nelson and Rian DeFaccio"
+format: pdf
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# Survey Statistics Tests
+
+This section introduces the idea of hypothesis testing and then covers
+common inferential statistical tests used in survey analysis with
+complex survey designs. These tests account for survey weights and
+design effects, providing valid inference for population estimates.
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(survey)
+library(srvyr)
+```
+
+## Data
+
+Here we setup a design object for the Residential Energy Consumption
+Survey data which we first saw in the prior lesson.
+
+```{r}
+recs_des <- read.csv('../data/recs_2020.csv') %>%
+  as_survey_rep(
+    weights = NWEIGHT,
+    repweights = NWEIGHT1:NWEIGHT60,
+    type = "JK1",
+    scale = 59 / 60,
+    mse = TRUE
+  )
+```
+
+# Statistical Inference and Hypothesis Testing
+
+## Introduction to Statistical Inference
+
+------------------------------------------------------------------------
+
+Statistical inference is the process of using sample data to make
+conclusions about a larger population. Instead of measuring every
+individual in a population (which is often impossible), we collect a
+representative sample and use statistical methods to draw reasonable
+conclusions.
+
+Key concepts include:
+
+-   **Population**: The entire group we want to study
+-   **Sample**: A subset of the population we actually observe
+-   **Parameter**: A numerical characteristic of the population
+    (unknown)
+-   **Statistic**: A numerical characteristic of the sample (calculated
+    from data)
+
+## The Logic of Hypothesis Testing
+
+------------------------------------------------------------------------
+
+Hypothesis testing provides a structured framework for making decisions
+about population parameters based on sample evidence. The process
+involves:
+
+**Setting up hypotheses:**
+
+-   **Null hypothesis (H₀)**: The default assumption or "no effect"
+    claim
+-   **Alternative hypothesis (H₁ or Hₐ)**: The claim we're testing for
+
+**The testing process:**
+
+-   Assume the null hypothesis is true
+-   Calculate how likely our observed data would be under this
+    assumption
+-   If the data would be very unlikely under H₀, we reject the null
+    hypothesis
+-   If the data is reasonably likely under H₀, we fail to reject the
+    null hypothesis
+
+## Understanding P-Values
+
+------------------------------------------------------------------------
+
+A **p-value** is the probability of observing data as extreme or more
+extreme than what we actually observed, assuming the null hypothesis is
+true.
+
+**Key characteristics of p-values:**
+
+-   Always between 0 and 1
+-   Smaller p-values indicate stronger evidence against the null
+    hypothesis
+-   A p-value is NOT the probability that the null hypothesis is true
+-   Common threshold: p \< 0.05 is often used to determine "statistical
+    significance"
+
+**Interpreting p-values:**
+
+-   p = 0.03: "If the null hypothesis were true, we'd see results this
+    extreme only 3% of the time"
+-   p = 0.15: "If the null hypothesis were true, we'd see results this
+    extreme 15% of the time"
+-   p = 0.001: "If the null hypothesis were true, we'd see results this
+    extreme only 0.1% of the time"
+
+## Steps in Hypothesis Testing
+
+------------------------------------------------------------------------
+
+1.  **State the hypotheses** (H₀ and H₁)
+2.  **Choose significance level** (α, typically 0.05)
+3.  **Select appropriate test statistic** (t-test, z-test, chi-square,
+    etc.)
+4.  **Calculate the test statistic** from sample data
+5.  **Find the p-value** or critical value
+6.  **Make a decision** (reject or fail to reject H₀)
+7.  **State conclusion** in context of the problem
+
+## Common Misconceptions
+
+------------------------------------------------------------------------
+
+**About p-values:**
+
+-   A p-value does NOT tell us the probability that our hypothesis is
+    correct
+-   p \< 0.05 doesn't mean the result is "important" or "large"
+-   Statistical significance ≠ practical significance
+
+**About hypothesis testing:**
+
+-   We never "prove" a hypothesis true
+-   We never "accept" the null hypothesis, only fail to reject it
+-   Small sample sizes can lead to low statistical power
+
+## Example Application
+
+------------------------------------------------------------------------
+
+**Research question:** Does a new teaching method improve test scores?
+
+-   **H₀**: The new method has no effect (μ₁ = μ₂)
+-   **H₁**: The new method improves scores (μ₁ \> μ₂)
+-   **Data**: Sample of students using new method vs. traditional method
+-   **Result**: p = 0.02
+-   **Conclusion**: We reject H₀ and conclude the new method appears to
+    improve test scores
+
+## Key Takeaways
+
+------------------------------------------------------------------------
+
+Statistical inference allows us to make informed decisions about
+populations based on sample data. Hypothesis testing provides a
+systematic approach, but requires careful interpretation of results.
+
+Remember:
+
+-   P-values measure evidence against the null hypothesis
+-   Statistical significance doesn't guarantee practical importance
+-   Always consider the context and limitations of your analysis
+-   Replication and effect size are crucial for drawing robust
+    conclusions
+
+# Overview of Survey Statistical Tests
+
+Now let's begin to apply all of that theory! Here are the statistical
+tests we will be exploring, and which functions we will use to implement
+them.
+
+## Tests for Continuous Variables
+
+| Test Type | Function(s) | Purpose | Example Use Case |
+|----------------|----------------|---------------------|---------------------|
+| Comparison of Means | `survey::svyttest()` | Test if mean of a continuous variable equals a value (one-sample) or differs between groups (two-sample), accounting for survey design | Compare average electricity bills between households with and without air conditioning |
+| Comparison of Proportions | `survey::svyttest()` | Test if a binary variable's proportion equals a value or differs between groups, accounting for survey design | Test if the proportion of households with air conditioning differs from 90% |
+
+## Tests for Categorical Variables
+
+| Test Type | Function(s) | Purpose | Example Use Case |
+|----------------|----------------|---------------------|---------------------|
+| Goodness-of-fit Test | `survey::svygofchisq()` | Assess if observed distribution of a categorical variable matches expected proportions | Test if housing unit type distribution matches Census data |
+| Test of Independence | `survey::svychisq()` | Evaluate if two categorical variables are independent in the population, adjusting for survey design | Test if housing unit type is associated with space heating type |
+| Test of Homogeneity | `survey::svychisq()` | Compare distribution of a categorical variable across groups, accounting for survey sampling | Test if housing unit type distribution is the same across climate regions |
+
+These functions from the {survey} and {srvyr} packages ensure that
+statistical inference properly reflects the survey's complex sampling
+structure.
+
+# Comparisons of Means
+
+In survey analysis, comparing a continuous variable to a single value or
+to another continuous variable is commonly done using survey-adjusted
+t-tests. These tests account for the survey design, ensuring valid
+inference.
+
+-   **One-sample t-test:** Tests if the mean of a continuous variable
+    differs from a specified value.
+-   **Two-sample t-test:** Compares means between two groups.
+-   **Paired t-test:** Compares two related measurements within the same
+    units (e.g., before and after).
+
+The following examples demonstrate how to perform these tests using the
+`svyttest()` function from the {survey} or {srvyr} packages.
+
+## One-Sample t-test: Testing Against a Known Value
+
+A one-sample t-test is used to determine whether the mean of a single
+continuous variable differs from a specified value. In survey analysis,
+the `svyttest()` function adjusts for survey design and weights.
+
+For example, to test whether the mean nighttime summer temperature
+(`SummerTempNight`) differs from 68°F:
+
+A one-sample t-test evaluates whether the population mean differs
+significantly from a hypothesized value. It answers questions like "Is
+the average summer temperature different from 68°F?"
+
+With survey data, we use `svyttest()` with the formula
+`variable - hypothesized_value ~ 0`.
+
+```{r}
+# One-sample t-test example
+one_sample_test <- recs_des %>%
+  svyttest(
+    formula = SummerTempNight - 68 ~ 0, # Testing if mean equals 68°F
+    design = .,
+    na.rm = TRUE
+  )
+
+# Display test results
+one_sample_test
+```
+
+The output shows the test statistic, degrees of freedom, and p-value. A
+small p-value (\< 0.05) indicates that the mean temperature is
+significantly different from 68°F. We can also extract the confidence
+interval:
+
+```{r}
+# Extract confidence interval
+confint(one_sample_test)
+```
+
+```{r}
+# Extract confidence interval at different significance threshold
+confint(one_sample_test, level = 0.80)
+```
+
+## Two-Sample t-test: Comparing Groups
+
+A two-sample t-test compares means between two independent groups. It
+answers questions like "Do households with air conditioning have
+different electricity bills than those without?"
+
+For survey data, we use `svyttest()` with the formula
+`continuous_variable ~ grouping_variable`.
+
+```{r}
+# Two-sample t-test comparing electricity bills between households with and without AC
+two_sample_test <- recs_des %>%
+  svyttest(
+    formula = DOLLAREL ~ ACUsed,  # Comparing DOLLAREL between ACUsed groups
+    design = .,
+    na.rm = TRUE
+  )
+
+# Display test results
+two_sample_test
+```
+
+```{r}
+# Visualize group means
+recs_des %>%
+  group_by(ACUsed) %>%
+  summarize(mean_bill = survey_mean(DOLLAREL, vartype = "ci", na.rm = TRUE)) %>%
+  knitr::kable(digits = 2)
+```
+
+In this example, the p-value tells us whether the difference in
+electricity bills between households with and without air conditioning
+is statistically significant. The confidence interval of the difference
+helps us understand the magnitude of this difference.
+
+## Paired Sample t-test: Comparing Measurements on the Same Units
+
+A paired t-test compares two related measurements, like summer vs.
+winter temperatures in the same households. We can test this using a
+one-sample test on the differences:
+
+```{r}
+# Paired t-test comparing summer and winter temperatures
+paired_test <- recs_des %>%
+  svyttest(
+    formula = SummerTempNight - WinterTempNight ~ 0,  # Testing if the difference equals 0
+    design = .,
+    na.rm = TRUE
+  )
+
+paired_test
+```
+
+# Testing Proportions
+
+Proportions tests with survey data follow similar principles to means
+tests but work with binary outcomes. The `svyttest()` function can be
+used for proportion tests by converting categorical variables to numeric
+indicators (0/1).
+
+## One-Sample Proportion Test
+
+A one-sample proportion test determines whether a population proportion
+differs from a specified value, accounting for the survey design.
+
+```{r}
+# First, let's examine the proportion of households with air conditioning
+acprop <- recs_des %>%
+  group_by(ACUsed) %>%
+  summarize(p = survey_prop())
+
+# Display the results
+acprop
+```
+
+To test if the proportion of households with air conditioning differs
+from 90%:
+
+```{r}
+# One-sample proportion test
+prop_test_one <- recs_des %>%
+  svyttest(
+    formula = (ACUsed == TRUE) - 0.90 ~ 0,  # Testing if proportion equals 90%
+    design = .,
+    na.rm = TRUE
+  )
+
+# Display raw results
+prop_test_one
+```
+
+```{r}
+# For cleaner output with formatted p-values
+broom::tidy(prop_test_one) %>%
+  mutate(
+    p.value = ifelse(p.value < 0.001, "<0.001", p.value)
+  ) %>%
+  knitr::kable(
+    digits = 3,
+    format.args = list(big.mark = ",", nsmall = 3)
+  )
+```
+
+In this test:
+
+-   The formula `(ACUsed == TRUE) - 0.90 ~ 0` converts the logical
+    variable to 0/1 and tests if it differs from 0.90
+-   A significant p-value indicates that the true proportion differs
+    from 90%
+-   The estimate shows the difference between the observed proportion
+    and 90%
+
+## Two-Sample Proportion Test
+
+To compare proportions between two groups, we can use a similar approach
+to two-sample means tests.
+
+```{r}
+recs_des %>%
+  group_by(ACUsed) %>%
+  summarize(mean = survey_mean(DOLLAREL, na.rm = TRUE)) %>%
+  knitr::kable()
+```
+
+```{r}
+# Compare proportions of households with solar panels between regions
+region_solar_test <- recs_des %>%
+  svyttest(
+    formula = DOLLAREL ~ ACUsed,  # Comparing solar panel adoption by region
+    design = .,
+    na.rm = TRUE
+  )
+
+# Display results
+region_solar_test
+```
+
+# Categorical Variable Tests
+
+This section demonstrates how to test hypotheses about categorical
+variables in survey data, using survey-adjusted chi-square tests. These
+include:
+
+-   **Goodness-of-fit tests:** Do observed category frequencies match
+    expected values?
+-   **Tests of independence:** Are two categorical variables associated?
+-   **Tests of homogeneity:** Is the distribution of a categorical
+    variable the same across groups?
+
+We use the `svygofchisq()` and `svychisq()` functions from the {survey}
+package, which properly account for survey weights and design effects.
+
+## Goodness-of-Fit Test
+
+A goodness-of-fit test evaluates whether an observed categorical
+distribution matches an expected distribution. This is useful for
+comparing survey data to known population values.
+
+When performing inferential statistical tests, it is important to handle
+missing data appropriately. Most survey analysis functions in R,
+including `svygofchisq()`, require complete data for the variables
+involved in the test. If any observations have missing values for the
+tested variable, they are excluded from the analysis. This is typically
+done using `drop_na()` or by specifying `na.rm = TRUE` in the function
+call.
+
+Dropping missing data ensures that the test statistic is calculated only
+on valid, observed responses. Including missing values would either
+cause errors or bias the results, as the statistical methods cannot
+infer the category for missing responses. Therefore, before running a
+goodness-of-fit test (or any inferential test), we remove observations
+with missing values for the relevant variable to ensure accurate and
+interpretable results.
+
+```{r}
+# First, examine the distribution of educational attainment
+recs_des %>%
+  drop_na(HousingUnitType) %>%
+  group_by(HousingUnitType) %>%
+  summarize(p = survey_mean()) %>%
+  mutate(p_se = ifelse(p_se < 0.001, "<0.001", p_se)) %>%
+  knitr::kable(
+    digits = 3,
+    format.args = list(big.mark = ",", nsmall = 3)
+  )
+
+# Test if education distribution matches expected values (e.g., from Census data)
+gof_test <- recs_des %>%
+  svygofchisq(
+    formula = ~ HousingUnitType,
+    p = c(0.10, 0.18, 0.05, 0.06, 0.61),  # Expected proportions
+    design = .,
+    na.rm = TRUE
+  )
+
+# Display test results
+gof_test
+```
+
+In this goodness-of-fit test:
+
+-   The `formula` specifies the categorical variable to test
+-   The `p` argument provides the expected proportions (which must sum
+    to 1)
+-   A significant p-value indicates that the observed distribution
+    differs from the expected distribution
+-   The test accounts for the survey design when calculating the
+    chi-square statistic
+
+## Test of Independence
+
+A test of independence determines whether two categorical variables are
+associated within the population, accounting for the survey design. For
+example, we might want to know if the type of housing unit is related to
+the type of space heating used.
+
+The `svychisq()` function from the {survey} package performs a
+survey-adjusted chi-square test of independence. The formula combines
+the two categorical variables with a `+` sign.
+
+A significant p-value from this test suggests that the variables are not
+independent, indicating an association between them. To better
+understand the relationship, we can also create a cross-tabulation
+showing the proportion of each combination of categories.
+
+```{r}
+# do a crosstab first
+housing_heat_crosstab <- recs_des %>%
+    group_by(HousingUnitType, SpaceHeatingUsed) %>%
+    summarize(prop = survey_mean()) %>%
+    select(-prop_se) %>%
+    tidyr::pivot_wider(
+        names_from = HousingUnitType,
+        values_from = prop
+    ) %>%
+    knitr::kable(digits = 3)
+
+housing_heat_crosstab
+```
+
+```{r}
+# Test independence between HousingUnitType and SpaceHeatingUsed
+independence_test <- recs_des %>%
+    svychisq(
+        formula = ~ HousingUnitType + SpaceHeatingUsed,
+        design = .,
+        statistic = "Wald",
+        na.rm = TRUE
+    )
+
+# Display test results
+independence_test
+```
+
+In this independence test:
+
+-   The `formula` combines two categorical variables with `+` to test
+    their independence
+-   The `statistic = "Wald"` option is appropriate for complex survey
+    designs
+-   A significant p-value suggests the variables are not independent
+    (i.e., they are associated)
+-   The cross-tabulation helps interpret the nature of the relationship
+
+## Test of Homogeneity
+
+A test of homogeneity evaluates whether the distribution of a
+categorical variable is the same across different groups. While
+technically similar to independence tests, these assess if a categorical
+variable's distribution varies across population subgroups.
+
+```{r}
+# Create a cross-tabulation showing party distribution by region
+tab <- recs_des %>%
+  group_by(HousingUnitType, ClimateRegion_BA) %>%
+  summarize(prop = survey_mean()) %>%
+  select(-prop_se) %>%
+  tidyr::pivot_wider(
+        names_from = HousingUnitType,
+        values_from = prop
+    ) %>%
+  knitr::kable(digits = 3)
+
+tab
+```
+
+```{r}
+table(recs_des$variables$ClimateRegion_BA)
+
+# Test if political party affiliation distribution is the same across regions
+homogeneity_test <- recs_des %>%
+  svychisq(
+    formula = ~ HousingUnitType + ClimateRegion_BA,  # Testing if HousingUnitType is the same across regions
+    design = .,
+    statistic = "Chisq",
+    na.rm = TRUE
+  )
+
+# Display test results
+homogeneity_test
+```
+
+In this homogeneity test:
+
+-   The formula structure is the same as for independence tests
+-   We're specifically asking if the distribution of party affiliation
+    is consistent across regions
+-   A significant p-value indicates the distribution differs by region
+-   The proportion table allows us to see how party distribution varies
+    across regions
+
+These three chi-square-based tests form the foundation for analyzing
+categorical data in complex surveys, allowing us to make
+population-level inferences while accounting for the survey design.
+
+## Homogeneity Test vs. Independence Test
+
+While both the test of homogeneity and the test of independence use the
+chi-square statistic and have similar formula syntax in R, they answer
+different research questions:
+
+|   | Test of Independence | Test of Homogeneity |
+|------------------------|------------------------|------------------------|
+| **Purpose** | Determines whether two categorical variables are associated within a single population. | Assesses whether the distribution of a categorical variable is the same across different populations or groups. |
+| **Example** | Is housing unit type associated with space heating type in the overall survey population? | Is the distribution of housing unit types the same across different climate regions? |
+| **Interpretation** | A significant result suggests a relationship (dependence) between the variables. | A significant result indicates that at least one group has a different distribution compared to others. |
+
+In practice, both tests use similar code and statistical methods, but
+the context and interpretation differ:
+
+-   Independence tests focus on association within a single population.
+-   Homogeneity tests compare distributions across multiple populations
+    or groups.
+
+# Conclusion
+
+Survey data analysis requires specialized statistical methods to account
+for complex sampling designs, weights, and clustering. The {survey} and
+{srvyr} packages in R provide robust tools for conducting valid
+inferential tests—such as t-tests and chi-square tests—on means,
+proportions, and categorical variables. By using these survey-adjusted
+methods, analysts can draw accurate, population-level conclusions from
+survey data, ensuring that results reflect the true variability and
+structure of the sampled population. Mastery of these techniques is
+essential for anyone working with survey data sets in applied research
+or policy analysis.
+
+Some key concepts from this lesson include:
+
+-   Always use survey-adjusted statistical tests (e.g., `svyttest()`,
+    `svychisq()`) to account for weights and complex sampling.
+-   Interpret results in the context of the survey design—standard
+    errors and p-values reflect the population, not just the sample.
+-   Use the {survey} and {srvyr} packages for streamlined, reproducible
+    analysis workflows.
+-   Carefully check variable coding and missing data before running
+    inferential tests.

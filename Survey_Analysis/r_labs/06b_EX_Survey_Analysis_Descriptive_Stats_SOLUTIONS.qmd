@@ -1,0 +1,383 @@
+---
+title: "Survey Analysis with R - Descriptive Statistics Lab SOLUTIONS"
+author: "Instructor Solutions"
+format: pdf
+---
+
+## Survey Descriptive Statistics Lab
+
+In this lab, you will practice computing descriptive statistics for survey data using the ANES 2020 dataset. You will learn to calculate survey-weighted estimates including counts, sums, means, proportions, and quantiles while accounting for the complex survey design.
+
+Please refer to the codebook when looking up information on variables:
+
+> 🌐[ANES 2020 Time Series Study
+Full Release](https://electionstudies.org/wp-content/uploads/2022/02/anes_timeseries_2020_userguidecodebook_20220210.pdf)
+
+### 1. Load Libraries and Data
+
+Load the required packages and import the ANES 2020 dataset.
+
+```{r}
+# LOAD REQUIRED LIBRARIES
+library(tidyverse)
+library(survey)
+library(srvyr)
+
+# remove scientific notation
+options(scipen = 999)
+```
+
+```{r}
+# IMPORT THE ANES 2020 DATa
+# SAVE AS: anes_data
+anes_data <- read.csv('../data/anes_2020.csv')
+```
+
+```{r}
+# EXAMINE THE BASIC STRUCTURE OF THE DATA
+# DISPLAY: dimensions and first few rows
+dim(anes_data)
+head(anes_data, 3)
+```
+
+### 2. Create Survey Design Object
+
+```{r}
+# CREATE A VARIABLE FOR THE TARGET POPULATION SIZE
+# SAVE AS: us_adult_pop_2020
+# SET VALUE: 240000000
+us_adult_pop_2020 <- 240000000
+```
+
+```{r}
+# CALCULATE ADJUSTED WEIGHTS USING THE TARGET POPULATION
+# FORMULA: (V200010b / sum(V200010b)) * us_adult_pop_2020
+# SAVE AS: adjusted_weights
+adjusted_weights <- (anes_data$V200010b / sum(anes_data$V200010b)) * us_adult_pop_2020
+```
+
+```{r}
+# ADD THE ADJUSTED WEIGHTS TO THE DATASET
+# SAVE AS: weight_adj (as new column in anes_data)
+anes_data$weight_adj <- adjusted_weights
+```
+
+```{r}
+# CREATE THE ANES SURVEY DESIGN OBJECT
+# SAVE AS: anes_design
+# USE: 
+# - weights = weight_adj
+# - strata = V200010d
+# - ids = V200010c
+# - nest = TRUE
+anes_design <- anes_data %>%
+  as_survey_design(
+    weights = weight_adj,
+    strata = V200010d,
+    ids = V200010c,
+    nest = TRUE
+  )
+```
+
+```{r}
+# EXAMINE THE SURVEY DESIGN OBJECT
+# DISPLAY: anes_design
+anes_design
+```
+
+### 3. Survey-Weighted Counts and Totals
+
+Calculate basic counts and totals using survey weights.
+
+```{r}
+# CALCULATE THE ESTIMATED TOTAL NUMBER OF RESPONDENTS
+# USE: survey_count() function
+# DISPLAY: result with comma formatting
+anes_design %>%
+    survey_count() %>%
+    knitr::kable(format.args = list(big.mark = ","))
+```
+
+When you display the estimated counts for the target population, we recommend rounding the estimates to make interpretation easier. Otherwise you have to explain why there are fractional people.
+
+Additionally, remove missing values before performing the counting operation.
+
+```{r}
+# CALCULATE THE ESTIMATED COUNT BY EDUCATIONAL ATTAINMENT
+# SAVE AS: education_counts
+# DISPLAY: with comma formatting
+education_counts <- anes_design %>%
+    filter(!is.na(Education)) %>%
+    survey_count(Education)
+
+education_counts %>%
+  knitr::kable(
+    digits = 0,
+    format.args = list(
+        big.mark = ",",
+        nsmall = 0
+        )
+    )
+```
+
+
+
+```{r}
+# CALCULATE THE ESTIMATED COUNT BY EDUCATION AND GENDER
+# USE: survey_count() function
+# DISPLAY: with comma formatting
+anes_design %>%
+  filter(!is.na(Gender) & !is.na(Education)) %>%
+  survey_count(Gender, Education, name = "N") %>%
+  knitr::kable(
+    digits = 0,
+    format.args = list(
+        big.mark = ",",
+        nsmall = 0
+        )
+    )
+```
+
+```{r}
+# REDO THE ABOVE ANALYSIS BUT PIVOT RESULTS WIDER
+anes_design %>%
+    filter(!is.na(Gender) & !is.na(Education)) %>%
+    survey_count(Gender, Education, name = "N") %>%
+    pivot_wider(
+        names_from = Gender,
+        values_from = c(N, N_se)
+    ) %>%
+    knitr::kable(
+        digits = 0,
+        format.args = list(
+            big.mark = ",",
+            nsmall = 0
+        )
+    )
+```
+
+### 4. Survey-Weighted Means and Proportions
+
+Calculate means for continuous variables and proportions for categorical variables.
+
+```{r}
+# CALCULATE THE PROPORTION OF RESPONDENTS IN EACH EDUCATION LEVEL
+# USE: survey_prop() function
+# DISPLAY: with 3 decimal places
+anes_design %>%
+  filter(!is.na(Education)) %>%
+  group_by(Education) %>%
+  summarize(prop = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+```{r}
+# CALCULATE THE MEAN AGE FOR THE ENTIRE POPULATION
+# SAVE RESULT AS: mean_age
+# DISPLAY: mean_age
+mean_age <- anes_design %>%
+  summarize(mean_age = survey_mean(Age, na.rm = TRUE))
+
+mean_age
+```
+
+```{r}
+# CALCULATE THE MEAN AGE BY GENDER
+# SHOW CONFIDENCE INTERVAL
+# DISPLAY: with 2 decimal places
+anes_design %>%
+    filter(!is.na(Gender)) %>%
+    group_by(Gender) %>%
+    summarize(
+        mean_age = survey_mean(Age, vartype = "ci", na.rm = TRUE)
+    ) %>%
+    knitr::kable(digits = 2)
+```
+
+```{r}
+# CALCULATE THE PROPORTION WHO VOTED IN 2020
+# DISPLAY: results with standard errors
+anes_design %>%
+  filter(!is.na(VotedPres2020)) %>%
+  group_by(VotedPres2020) %>%
+  summarize(prop = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+### 5. Survey-Weighted Quantiles
+
+```{r}
+# CALCULATE THE MEDIAN AGE
+# SAVE AS: median_age
+# DISPLAY: median_age
+median_age <- anes_design %>%
+  summarize(
+    median_age = survey_quantile(
+        Age, 
+        quantiles = 0.5, 
+        na.rm = TRUE
+        )
+    )
+
+median_age %>%
+    knitr::kable()
+```
+
+```{r}
+# CALCULATE THE 25th, 50th, AND 75th PERCENTILES OF AGE
+# INCLUDE SEs 
+# DISPLAY: results with proper labeling
+anes_design %>%
+    summarize(
+        age_quartiles = survey_quantile(
+            V201507x,
+            quantiles = c(0.25, 0.5, 0.75),
+            na.rm = TRUE
+            )
+        ) %>%
+  knitr::kable(digits = 1)
+```
+
+```{r}
+# CALCULATE AGE QUARTILES BY EDUCATION LEVEL
+# DISPLAY: results with 1 decimal place
+anes_design %>%
+    filter(!is.na(Education)) %>%
+    group_by(Education) %>%
+    summarize(
+        age_quartiles = survey_quantile(
+            Age, 
+            quantiles = c(0.25, 0.5, 0.75), 
+            na.rm = TRUE
+        )
+    ) %>%
+    knitr::kable(digits = 1)
+```
+
+### 6. Survey-Weighted Ratios
+
+```{r}
+# CALCULATE THE RATIO OF MEAN AGE BETWEEN COLLEGE GRADS AND NON-GRADS
+# HINT: First create a binary education variable 
+# - (college vs non-college)
+
+# FIRST COMPARE [Education] vs. [V201510]
+with(anes_design$variables, table(Education, V201510))
+```
+
+```{r}
+# NOW UTILIZE [V201510] TO BUILD THE BINARY VARIABLE
+# AND GET MEAN AGE BY COLLEGE OR PRE_COLLEGE
+age_by_education <- anes_design %>%
+    filter(!is.na(V201510)) %>%
+    mutate(
+    college_grad = ifelse(
+        V201510 >= 4, 
+        "College+", 
+        "Less than College"
+        )
+    ) %>%
+    group_by(college_grad) %>%
+    summarize(mean_age = survey_mean(Age, na.rm = TRUE))
+
+# VIEW THE DATAFRAME WITH THE MEAN AGES
+age_by_education %>%
+  knitr::kable(digits = 2)
+```
+
+```{r}
+# CALCULATE RATIO
+college_ratio <- age_by_education$mean_age[age_by_education$college_grad == "College+"] / 
+                 age_by_education$mean_age[age_by_education$college_grad == "Less than College"]
+print(paste("Ratio of college to non-college mean age:", round(college_ratio, 3)))
+```
+
+### 7. Comparison: Weighted vs Unweighted Analysis
+
+Compare survey-weighted results with unweighted results to see the difference.
+
+```{r}
+# CALCULATE UNWEIGHTED MEAN AGE
+# SAVE AS: unweighted_mean_age
+# DISPLAY: result
+unweighted_mean_age <- mean(anes_data$V201507x, na.rm = TRUE)
+unweighted_mean_age
+```
+
+```{r}
+# CALCULATE WEIGHTED MEAN AGE
+# SAVE AS: weighted_mean_age  
+# DISPLAY: result
+weighted_mean_age <- anes_design %>%
+  summarize(mean_age = survey_mean(V201507x, na.rm = TRUE))
+weighted_mean_age
+```
+
+```{r}
+# COMPARE THE DIFFERENCE BETWEEN WEIGHTED AND UNWEIGHTED ESTIMATES
+# CALCULATE: difference between weighted and unweighted means
+# DISPLAY: the difference and discuss what this suggests
+age_difference <- weighted_mean_age$mean_age - unweighted_mean_age
+print(paste("Difference (weighted - unweighted):", round(age_difference, 2), "years"))
+print("This difference suggests that the survey design affects age estimates.")
+```
+
+```{r}
+# CALCULATE UNWEIGHTED EDUCATION PROPORTIONS
+# DISPLAY: results rounded to 3 decimal places
+unweighted_education <- table(anes_data$Education, useNA = "no") %>%
+    prop.table()
+unweighted_education %>%
+    knitr::kable(digits = 3)
+```
+
+```{r}
+# CALCULATE WEIGHTED EDUCATION PROPORTIONS
+# DISPLAY: results rounded to 3 decimal places
+weighted_education <- anes_design %>%
+  filter(!is.na(Education)) %>%
+  group_by(Education) %>%
+  summarize(weighted_prop = survey_prop())
+
+print("Weighted Education Proportions:")
+weighted_education %>%
+  knitr::kable(digits = 3)
+
+print("Comparison shows how survey weights adjust for population representation.")
+```
+
+```{r}
+# BONUS - PRESENT WEIGHTED AND UNWEIGHTED RESULTS SIDE-BY-SIDE
+# PUT THEM BOTH IN THE SAME TABLE
+
+# Join results into a single table
+comparison_table <- unweighted_education %>%
+    as.data.frame() %>%
+    rename(Education = Var1, unweighted_prop = Freq) %>%
+    left_join(weighted_education, by = "Education") %>%
+    select(Education, unweighted_prop, everything())
+
+# Display the table
+comparison_table %>%
+    knitr::kable(
+        digits = 2, 
+        caption = "Weighted and Unweighted Mean Age by Education"
+    )
+```
+
+## Conclusion
+
+In this lab, you practiced computing survey-weighted descriptive statistics using the ANES 2020 dataset. You learned to calculate counts, means, proportions, quantiles, and ratios while properly accounting for the complex survey design through weights, strata, and clusters.
+
+Key takeaways:
+- Survey-weighted estimates provide population-representative results
+- Unweighted analysis can lead to biased estimates that don't reflect the target population
+- The survey design object is essential for proper variance estimation
+- Different types of descriptive statistics require different survey functions
+
+### Summary of Functions Used
+- `survey_count()` and `survey_tally()` for weighted counts
+- `survey_mean()` for weighted means 
+- `survey_prop()` for weighted proportions
+- `survey_quantile()` for weighted percentiles
+- `survey_ratio()` for ratios between estimates

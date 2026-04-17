@@ -1,0 +1,214 @@
+---
+title: "Survey Analysis with R - Introduction"
+author: "Jemma Nelson and Rian DeFaccio"
+format: pdf
+---
+
+# Survey Analysis with R
+
+## Introduction
+
+Surveys are a fundamental tool for collecting data about populations when it is **impractical or impossible to measure every individual**. In this series of lessons, we will explore how to analyze survey data using R, focusing on the unique challenges and considerations that arise from survey methodology.
+
+Survey data analysis differs from standard data analysis in several important ways. Unlike experimental or observational data, survey data often involve complex sampling designs, including stratification, clustering, and unequal probabilities of selection. These designs require specialized statistical techniques to ensure that estimates and inferences are valid and representative of the target population.
+
+Throughout this series of lessons, you will learn:
+
+-   The principles of survey sampling and design, including how samples are drawn and why weights are necessary.
+-   How to use R packages such as {survey} and {srvyr} to specify survey designs and perform analyses that account for sampling weights and design effects.
+-   Methods for descriptive and inferential analysis of survey data, including estimation of means, proportions, totals, and regression modeling.
+-   How to interpret results from survey analyses, including understanding standard errors, confidence intervals, and the impact of survey design on statistical inference.
+
+By the end of these lessons, you will be equipped with the knowledge and tools to begin analyzing survey data, interpret your findings, and communicate results in a way that acknowledges the complexities of survey methodology.
+
+## Estimation of Weights
+
+Developing survey weights is a complex statistical task that involves accounting for the survey design, nonresponse, and post-stratification adjustments. This process is best handled by a qualified statistician and is beyond the scope of these lessons. In these lessons, we will use the weights provided with the datasets.
+
+## Further Reading
+
+The following references can provide further reading on this topic. The first reference is a comprehensive guide to performing survey analysis, specifically using R and the {survey} package, and is written by Thomas Lumley, the author of the {survey} package:
+
+> 🌐[Complex Surveys: A Guide to Analysis Using R](https://onlinelibrary.wiley.com/doi/book/10.1002/9780470580066)
+
+The second reference delves deep into the calculation of survey weights...
+
+> 🌐[Practical Tools for Designing and Weighting Survey Samples](https://link.springer.com/book/10.1007/978-3-319-93632-1)
+
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(survey)
+library(srvyr)
+```
+
+## Data
+
+# Survey Design
+
+Survey design refers to the process of planning how data will be collected from a subset of a population to ensure that the results are representative and reliable. Key elements of survey design include defining the target population, selecting an appropriate sampling method, and determining how responses will be weighted and analyzed. Careful survey design is essential for minimizing bias and maximizing the validity of conclusions drawn from survey data.
+
+A **sample**, in the context of survey analysis, is a subset of individuals or units selected from a larger population to represent the characteristics of that population. By analyzing a sample, we aim to draw conclusions about the entire population without having to collect data from every member.
+
+Let's review some example datasets to illustrate the concept of a sample. Some of the below are samples, and some are not:
+
+-   **CO2**: Experimental data on grass species' cold tolerance. Represents a sample of plants under study.
+-   **Iowa liquor sales**: Transactional data for all liquor sales in Iowa for a given year. This is a census, not a sample.
+-   **Survey data (e.g., RECS 2020)**: Data collected from a sample of households, designed to represent the broader population.
+
+Each dataset type has different implications for analysis, especially regarding how representative the data are of the population of interest.
+
+## Experimental Data: The CO2 Dataset
+
+The `CO2` dataset in R contains experimental data on the cold tolerance of two grass species. Key points:
+
+-   **Purpose**: Investigates how two grass species (Quebec and Mississippi) respond to different CO2 concentrations and temperature treatments.
+-   **Subjects**: 12 individual plants (6 from Quebec, 6 from Mississippi).
+-   **Design**: Each plant is measured repeatedly under varying conditions.
+-   **Variables**:
+    -   `Plant`: Unique identifier for each plant.
+    -   `Type`: Origin of the plant (Quebec or Mississippi).
+    -   `Treatment`: Whether the plant was chilled or not.
+    -   `conc`: Ambient CO2 concentration.
+    -   `uptake`: Rate of CO2 uptake (photosynthesis).
+-   **Use case**: Commonly used to demonstrate repeated measures and mixed-effects modeling in R.
+
+```{r}
+head(CO2)
+```
+
+In this data, all of the measurements desired from the experiment have been captured. The architects of the experiment controlled the conditions of the grass and then recorded carbon dioxide uptake at varying levels of atmospheric CO2 concentration. An import here is that **there are no missing data. All of the levels of data that the authors wanted to capture were included in the experiment design.**
+
+```{r}
+summary(CO2)
+table(CO2$Plant)
+```
+
+We can say that these 12 plants represent a finite and small *sample* of all grasses of the same species.
+
+## Retrospective Census: Iowa Liquor
+
+The Iowa liquor data set represents all liquor transactions in the state of Iowa for the years provided.
+
+For the year 2019, the data have recorded 139,304 transactions. This data is *not* a sample. All transactions (barring any data collection failures) have been recorded.
+
+-   **Source**: Public dataset from the State of Iowa, tracking all retail liquor sales.
+-   **Scope**: Contains every liquor transaction in Iowa from the year 2019.
+-   **Variables**: Includes store number, date, city, county, zip code, vendor, item description, bottle size, sale amount, and more.
+-   **Granularity**: Each row represents a single transaction at a retail location.
+-   **Use case**: Useful for analyzing sales trends, geographic patterns, and consumer behavior in alcohol purchases.
+-   **Census, not sample**: Represents the full set of transactions, not a subset.
+
+```{r}
+iowa <- read.csv("../data/iowa_liquor_2019.csv") %>%
+    mutate(date_dt = lubridate::mdy(Date)) 
+nrow(iowa)
+# take a peak at the data
+iowa %>% head(3)
+```
+
+## Survey data
+
+When we design, launch and then collect data from a survey, it is similar to designing an experiment. Survey methodology presumes that we can't collect data from every analysis unit that we're interested in. It would take too long or be too expensive to do so. So we understand that we will intend to capture a *sample.*
+
+But we might also have information about the complete population from a tool like a *census.* So that even though we know we are only working with a sample of data, we think we know how those samples represent the larger population.
+
+## Weighting
+
+Thus with surveys we introduce the idea of *sample weights.* With a survey, we account for the idea that a unit of response represents similar units, and we *weight* a given response to say "how many" of those similar units it represents.
+
+To make this concrete, let's take a look at the Residential Energy Consumption Survey data that we've included in the *data/* folder. We've saved this an a *.csv* file. A link to the survey documentation is below:
+
+> 🌐[2020 Residential Energy Consumption Survey: Household Characteristics Technical Documentation Summary](https://www.eia.gov/consumption/residential/data/2020/pdf/2020%20RECS_Methodology%20Report.pdf)
+
+From the information page, the survey states:
+
+> *"First conducted in 1978, the Residential Energy Consumption Survey is a national sample survey that collects energy-related data for housing units occupied as a primary residence and the households that live in them. We collected data from nearly 18,500 households in housing units statistically selected to represent the 123.5 million housing units that are occupied as primary residences."*
+
+In more detailed notes about the sample design, the authors state:
+
+> *"The variable NWEIGHT in the data file represents the final sampling weight, accounting for different probabilities of selection, rates of response, and adjustment for the U.S. Census Bureau housing unit estimates. NWEIGHT is the number of households in the population that the responding household represents. For example, if NWEIGHT for a household is 10,000, that household represents itself and 9,999 other households in the population that either were not sampled or were sampled but did not respond to the survey."*
+
+```{r}
+# import the survey data
+recs_2020 <- read.csv('../data/recs_2020.csv')
+
+# take a look at the data structure
+recs_2020 %>% head(3)
+```
+
+```{r}
+# take a peek at the [NWEIGHT] variable
+summary(recs_2020$NWEIGHT)
+head(recs_2020$NWEIGHT)
+```
+
+## Replicate weights
+
+Replicate weights are a set of additional weight variables provided with many complex survey datasets to enable accurate estimation of standard errors and other measures of uncertainty. Rather than relying on traditional formulas that assume simple random sampling, replicate weights allow analysts to account for the actual survey design—including stratification, clustering, and unequal probabilities of selection—when calculating variance estimates.
+
+Key points about replicate weights:
+
+-   They are typically provided as multiple columns in the dataset, each representing a different "replicate" of the survey sample.
+-   Each set of replicate weights is used to re-calculate estimates as if the survey had been conducted on a slightly different sample, mimicking the process of repeated sampling.
+-   By comparing estimates across all replicates, analysts can obtain robust standard errors that reflect the survey's complex design.
+-   Common methods for generating replicate weights include jackknife, bootstrap, and balanced repeated replication (BRR).
+-   Using replicate weights is essential for valid inference when analyzing survey data with complex sampling designs.
+
+```{r}
+# we have replicate weights in the residential energy consumption survey data
+# here we look at the original weights and some replicate weights
+recs_2020 %>% 
+    select(NWEIGHT:NWEIGHT3, NWEIGHT60) %>%
+    head(3)
+```
+
+## Stratification and Clustering in Survey Sampling
+
+When designing a survey, two common techniques used to improve the efficiency and accuracy of estimates are **stratification** and **clustering**.
+
+**Stratification** involves dividing the population into distinct subgroups, called *strata*, that share similar characteristics (such as age groups, regions, or income levels). Samples are then drawn separately from each stratum. This approach ensures that all important subgroups are represented in the sample and can lead to more precise estimates, especially when there are large differences between strata.
+
+**Clustering** refers to grouping the population into clusters (such as households, schools, or geographic areas) and then sampling entire clusters rather than individual units. This is often done for practical reasons, such as reducing travel costs or logistical complexity. While clustering can make data collection more efficient, it may increase the similarity of responses within clusters, which needs to be accounted for in the analysis.
+
+Both stratification and clustering are key features of complex survey designs and must be specified correctly in survey analysis to obtain valid results.
+
+## Survey Design Objects
+
+A **survey design object** is a specialized data structure used in statistical analysis to account for complex survey sampling designs. It enables accurate estimation of population parameters by incorporating information about:
+
+-   Sampling weights
+-   Stratification
+-   Clustering (primary sampling units)
+-   Finite population corrections
+
+The code below:
+
+-   Constructs a survey design object for the RECS 2020 dataset using the {srvyr} package.
+-   Uses `as_survey_rep()` to specify:
+    -   The main survey weights (`NWEIGHT`).
+    -   60 jackknife replicate weights (`NWEIGHT1` to `NWEIGHT60`).
+    -   The jackknife method for variance estimation (`type = "JK1"`).
+    -   Scaling and mean squared error parameters (`scale = 59/60`, `mse = TRUE`) as recommended by the survey documentation.
+-   Prepares the data for valid estimation of means, totals, and standard errors that account for the survey's complex sampling design.
+
+These design parameters were determined by examining the documentation for the survey data.
+
+```{r}
+recs_des <- recs_2020 %>%
+  as_survey_rep(
+    weights = NWEIGHT,
+    repweights = NWEIGHT1:NWEIGHT60,
+    type = "JK1",
+    scale = 59 / 60,
+    mse = TRUE
+  )
+
+recs_des
+```
+
+# Conclusion
+
+Survey data analysis requires specialized methods to account for complex sampling designs, including weighting, stratification, and clustering. Throughout this lesson, you have learned how to identify different types of data (experimental, census, and survey), understand the importance of sample weights and replicate weights, and specify survey design objects in R using the {survey} and {srvyr} packages. By applying these techniques, you can ensure that your analyses yield valid, representative, and interpretable results that reflect the structure of the underlying population. As you continue working with survey data, always consult the survey documentation and use appropriate tools to account for the design—this is essential for drawing accurate and meaningful conclusions from your data.

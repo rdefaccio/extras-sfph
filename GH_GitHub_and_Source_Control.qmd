@@ -1,0 +1,345 @@
+---
+title: "GitHub and Source Control in RStudio"
+author: "Rian DeFaccio for BH Analytics, Copyright BH Analytics, 2026"
+date: "`r Sys.Date()`"
+format: pdf
+---
+
+## Overview
+
+------------------------------------------------------------------------
+
+In this lesson we will cover using Git and GitHub as part of a reproducible analysis workflow inside RStudio. Topics include:
+
+-   Why version control matters for data analysis
+-   Installing and configuring Git
+-   Connecting RStudio to GitHub with a Personal Access Token (PAT)
+-   Core Git concepts: repositories, commits, branches
+-   Using the RStudio Git pane to stage, commit, push, and pull
+-   Creating and cloning repositories
+-   Managing `.gitignore`
+-   Common pitfalls and how to recover from them
+
+## Why Version Control?
+
+------------------------------------------------------------------------
+
+If you have ever saved files named `analysis_final.R`, `analysis_final_v2.R`, or `analysis_ACTUALLY_final.R`, you already understand the problem that version control solves.
+
+**Git** is a version control system that tracks every change you make to a file over time. With Git you can:
+
+-   See exactly what changed, when, and why (via commit messages).
+-   Revert any file (or your entire project) back to any earlier state.
+-   Work on experimental ideas in a **branch** without breaking working code.
+-   **Collaborate** with colleagues without overwriting each other's work.
+
+**GitHub** is a website that hosts Git repositories in the cloud. It acts as the remote backup of your project and the central hub for collaboration.
+
+::: callout-tip
+## 🔁 SAS vs. R: Version Control Culture
+
+SAS shops historically relied on shared network drives and manual naming conventions (`prog_v1.sas`, `prog_final.sas`) to manage code history. Formal version control for analytical code was rare.
+
+Git and GitHub are standard practice in the R and open-source data science world. RStudio (Posit) has built-in Git integration, and tools like `usethis` make setup nearly effortless. Adopting version control is one of the highest-leverage habits you can build as an R analyst.
+:::
+
+## Setup and Configuration
+
+------------------------------------------------------------------------
+
+### Step 1 — Install Required R Packages
+
+The `usethis` and `gitcreds` packages are used throughout this lesson. Neither is part of base R, so install them before proceeding:
+
+```{r eval=FALSE}
+install.packages(c("usethis", "gitcreds"))
+```
+
+### Step 2 — Install Git
+
+Git is a separate program from R and RStudio and must be installed first.
+
+-   **Windows:** Download from 🌐 <https://git-scm.com/download/win> and run the installer with default settings.
+-   **Mac:** Run `git --version` in the Terminal; macOS will prompt you to install Command Line Tools if Git is not present.
+-   **Linux:** `sudo apt install git` (Debian/Ubuntu) or equivalent.
+
+After installing, restart RStudio. You can verify RStudio found Git under **Tools → Global Options → Git/SVN**.
+
+### Step 3 — Configure Your Identity
+
+Git records your name and email with every commit. Run these lines **once** in the R console (or a terminal):
+
+```{r eval=FALSE}
+# Replace with your own name and email
+usethis::use_git_config(
+  user.name  = "Rian DeFaccio",
+  user.email = "rdefaccio@gmail.com"
+)
+```
+
+### Step 4 — Connect RStudio to GitHub (Personal Access Token)
+
+GitHub no longer accepts passwords over HTTPS. Instead, you authenticate with a **Personal Access Token (PAT)**. The `usethis` package makes this easy:
+
+```{r eval=FALSE}
+library(usethis)
+
+# Step 1: Opens GitHub in your browser to create a token.
+#         Choose the "repo", "workflow", and "gist" scopes at minimum.
+create_github_token()
+
+# Step 2: Opens a secure prompt where you paste the token.
+#         gitcreds saves it to your OS credential store.
+gitcreds::gitcreds_set()
+```
+
+::: callout-note
+## Where is the PAT actually stored?
+
+`gitcreds::gitcreds_set()` saves your token to your **operating system's secure credential store** — Windows Credential Manager, macOS Keychain, or the Linux Secret Service. The token lives at the OS level, completely outside your R project folder, and is never written to any file you could accidentally commit.
+
+This is why you should **not** store a PAT in:
+
+-   An R script (`.R`) or Quarto document (`.qmd`) — these can be committed to Git
+-   Your `.Renviron` file — this is plain text on disk and easy to expose accidentally
+
+Once stored via `gitcreds`, RStudio and Git discover it automatically in the background. You never need to reference it in code.
+:::
+
+Once set, RStudio can push and pull to GitHub without prompting you for credentials on every action.
+
+## Core Git Concepts
+
+------------------------------------------------------------------------
+
+| Concept | What it is |
+|------------------------------------|------------------------------------|
+| **Repository (repo)** | A folder tracked by Git. Contains your files plus a hidden `.git/` folder that stores the full history. |
+| **Commit** | A saved snapshot of your staged changes, paired with a message describing what changed and why. |
+| **Branch** | An independent line of development. The default branch is usually called `main`. |
+| **Remote** | A copy of your repo hosted elsewhere — typically GitHub (`origin`). |
+| **Push / Pull** | `push` sends your local commits to the remote; `pull` downloads changes from the remote into your local repo. |
+
+### The Basic Git Workflow
+
+Every day-to-day interaction follows the same simple loop:
+
+1.  **Edit** — make changes to your files in RStudio.
+2.  **Stage** — check the box next to files you want to include in the next commit.
+3.  **Commit** — write a short message and save the snapshot locally.
+4.  **Push** — upload your commits to GitHub.
+
+## Creating and Cloning Repositories
+
+------------------------------------------------------------------------
+
+### Option A — Start on GitHub, clone into RStudio
+
+This is the recommended starting point for new projects.
+
+1.  Go to 🌐 <https://github.com> and click **New repository**.
+2.  Give it a name, choose Public or Private, and tick **Add a README file**.
+3.  Click the green **Code** button and copy the HTTPS URL.
+4.  In RStudio: **File → New Project → Version Control → Git**, paste the URL, and choose a local folder.
+
+RStudio will clone the repository and open it as a new project with Git integration already active.
+
+### Option B — Start locally, push to GitHub
+
+If you already have an R project, `usethis` can initialize Git and create the GitHub repo in one step:
+
+NOTE — need to have an R Project initialized...
+
+```{r eval=FALSE}
+library(usethis)
+
+# Initialize a local Git repo (if not done yet)
+use_git()
+
+# Create a GitHub repo and push (requires PAT setup from Step 3 above)
+use_github()
+```
+
+## The RStudio Git Pane
+
+------------------------------------------------------------------------
+
+Once a project is version-controlled, RStudio shows a **Git** tab in the upper-right pane (next to Environment and History). This is your everyday interface.
+
+### Key Elements
+
+| Element | Description |
+|------------------------------------|------------------------------------|
+| **Staged checkbox** | Tick to include a file in the next commit (equivalent to `git add`). |
+| **Status icons** | `M` = Modified, `A` = Added (new), `D` = Deleted, `?` = Untracked |
+| **Commit button** | Opens the commit dialog where you write your message and finalize the snapshot. |
+| **Push / Pull** | Blue arrow (↓) pulls from GitHub; green arrow (↑) pushes to GitHub. |
+| **Diff viewer** | Click a file name to see exactly what lines changed (green = added, red = removed). |
+| **History** | Clock icon — shows every past commit, who made it, when, and what changed. |
+
+### Writing Good Commit Messages
+
+A commit message should complete the sentence *"When applied, this commit will…"*
+
+```         
+# Good
+Add age-adjusted mortality rates to Table 2
+
+# Too vague
+Update stuff
+
+# Too long
+Changed the mortality rate calculation in the analysis script to use
+age-adjusted rates instead of crude rates because the reviewer asked
+for that in their comments from last week's meeting
+```
+
+A short imperative phrase (50 characters or fewer) is the convention.
+
+## Branching and Pull Requests *(Optional)*
+
+------------------------------------------------------------------------
+
+For solo work, committing directly to `main` is fine. For team projects — or to safely develop a new feature — use a **branch**.
+
+```{r eval=FALSE}
+# Create and switch to a new branch from the R console
+usethis::pr_init("add-smoking-analysis")
+```
+
+You can also create a branch from the RStudio Git pane by clicking the branch icon (looks like a diamond with arrows).
+
+When your work on the branch is ready, open a **Pull Request (PR)** on GitHub. A PR is a proposal to merge your branch back into `main`. It gives teammates a chance to review your changes before they become part of the official repo.
+
+```{r eval=FALSE}
+# Push your branch and open a draft PR on GitHub
+usethis::pr_push()
+```
+
+## Managing `.gitignore`
+
+------------------------------------------------------------------------
+
+Not everything in your project folder should be tracked. The `.gitignore` file tells Git which files and folders to ignore completely.
+
+Common things to exclude in an R project:
+
+```         
+# R artifacts
+.Rhistory
+.RData
+.Rproj.user/
+
+# Rendered outputs (regenerate from source instead)
+*.html
+*.pdf
+
+# Large or sensitive data files
+data/
+*.csv
+*.xlsx
+
+# Credentials — NEVER commit these
+.env
+secrets.R
+```
+
+::: callout-caution
+## Keep credentials out of Git
+
+If you accidentally commit a file containing a password, API key, or PAT, treat it as compromised immediately — rotate the credential even after you delete the file from history. Git history is permanent unless forcibly rewritten, and public repos are indexed by bots.
+:::
+
+RStudio creates a sensible `.gitignore` automatically for new R projects. You can also add patterns using:
+
+```{r eval=FALSE}
+usethis::use_git_ignore(c("data/", "*.csv"))
+```
+
+## Common Pitfalls
+
+------------------------------------------------------------------------
+
+### Merge Conflicts
+
+A **merge conflict** happens when two people (or two branches) edit the same lines of the same file and Git cannot automatically decide which version to keep.
+
+Git marks the conflict directly inside the file:
+
+```         
+# <<<<<<< HEAD
+result <- model_v1 |> predict(new_data)
+=======
+result <- model_v2 |> predict(new_data)
+# >>>>>>> feature-branch
+```
+
+To resolve: edit the file to keep whichever version (or combination) is correct, delete the conflict markers, stage the file, and commit.
+
+The best prevention is **pull before you push** — always pull the latest changes from GitHub before starting a work session.
+
+### Accidentally Committed a Large File
+
+If you commit a large data file before adding it to `.gitignore`, use:
+
+```{r eval=FALSE}
+# Remove a file from tracking without deleting it from disk
+system("git rm --cached data/large_file.csv")
+```
+
+Then add the path to `.gitignore` and commit the change.
+
+### Lost Commits / Detached HEAD
+
+If you end up in a "detached HEAD" state or feel like you've lost work, do not panic and do not force-push. Run:
+
+```{r eval=FALSE}
+system("git reflog")
+```
+
+`reflog` is Git's internal safety net — it records every position `HEAD` has been at, including commits that appear lost. You can recover from nearly any mistake as long as you haven't run `git gc`.
+
+## Hands-On Exercise
+
+------------------------------------------------------------------------
+
+Practice the complete workflow end-to-end:
+
+1.  **Create a repo** — Create a new public repository on GitHub named `r-version-control-practice` with a README.
+
+2.  **Clone it** — Clone the repo into a new RStudio project using **File → New Project → Version Control → Git**.
+
+3.  **Add a script** — Create a new R script (`practice.R`) that loads `ggplot2` and makes a simple plot.
+
+4.  **Stage and commit** — In the Git pane, tick the checkbox next to `practice.R`, click Commit, write a message like `"Add initial practice script"`, and click Commit.
+
+5.  **Push** — Click the Push button (↑) and confirm the commit appears on GitHub in your browser.
+
+6.  **Edit and push again** — Modify the plot (change the color, add a title), stage, commit with a new message, and push.
+
+7.  **View history** — Click the History (clock) icon in the Git pane and confirm you can see both commits.
+
+## Quick Reference
+
+------------------------------------------------------------------------
+
+| Action | RStudio UI | `usethis` / terminal equivalent |
+|------------------------|------------------------|------------------------|
+| Initialize Git in existing project | Tools → Project Options → Git/SVN | `usethis::use_git()` |
+| Clone a repo | New Project → Version Control | `git clone <url>` |
+| Stage a file | Tick checkbox in Git pane | `git add <file>` |
+| Commit | Commit button → write message | `git commit -m "message"` |
+| Push | ↑ arrow in Git pane | `git push` |
+| Pull | ↓ arrow in Git pane | `git pull` |
+| Create branch | Branch icon in Git pane | `usethis::pr_init("name")` |
+| Check status | Git pane file list | `git status` |
+| View history | Clock icon in Git pane | `git log` |
+
+## Further Resources
+
+------------------------------------------------------------------------
+
+-   🌐 Happy Git and GitHub for the useR (the definitive R-focused guide): <https://happygitwithr.com/>
+-   🌐 `usethis` package documentation: <https://usethis.r-lib.org/>
+-   🌐 GitHub Docs — Getting started: <https://docs.github.com/en/get-started>
+-   🌐 Pro Git book (free, comprehensive): <https://git-scm.com/book/en/v2>

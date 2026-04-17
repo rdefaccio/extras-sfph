@@ -1,0 +1,234 @@
+---
+title: "Survey Analysis with R - Inferential Statistics Lab SOLUTIONS"
+author: "Instructor Solutions"
+format: pdf
+---
+
+## Survey Inferential Statistics Lab
+---
+
+In this lab, you will practice conducting inferential statistical tests with survey data using the ANES 2020 dataset. You will learn to perform survey-adjusted hypothesis tests including t-tests, proportion tests, and chi-square tests while properly accounting for the complex survey design.
+
+### 1. Load Libraries and Data
+
+Load the required packages and set up the survey design object.
+
+```{r}
+# LOAD REQUIRED LIBRARIES
+library(tidyverse)
+library(survey)
+library(srvyr)
+```
+
+```{r}
+# IMPORT THE ANES 2020 DATA FROM THE DATA FOLDER
+# SAVE AS: anes_data
+anes_data <- read.csv('../data/anes_2020.csv')
+```
+
+```{r}
+# CREATE TARGET POPULATION SIZE AND ADJUSTED WEIGHTS
+# SET: us_adult_pop_2020 = 240000000
+# CALCULATE: adjusted_weights using formula (V200010b / sum(V200010b)) * us_adult_pop_2020
+# ADD: weight_adj column to anes_data
+us_adult_pop_2020 <- 240000000
+adjusted_weights <- (anes_data$V200010b / sum(anes_data$V200010b)) * us_adult_pop_2020
+anes_data$weight_adj <- adjusted_weights
+```
+
+```{r}
+# CREATE THE ANES SURVEY DESIGN OBJECT
+# SAVE AS: anes_design
+# USE: weights = weight_adj, strata = V200010d, ids = V200010c, nest = TRUE
+anes_design <- anes_data %>%
+  as_survey_design(
+    weights = weight_adj,
+    strata = V200010d,
+    ids = V200010c,
+    nest = TRUE
+  )
+```
+
+### 2. One-Sample t-Tests
+
+```{r}
+# TEST WHETHER THE MEAN AGE DIFFERS FROM 45 YEARS
+# USE: svyttest() with formula [Age] - 45 ~ 0
+# SAVE AS: age_one_sample_test
+# DISPLAY: test results
+age_one_sample_test <- anes_design %>%
+  filter(!is.na(Age)) %>%
+  svyttest(formula = Age - 45 ~ 0, design = .)
+
+age_one_sample_test
+```
+
+```{r}
+# EXTRACT THE CONFIDENCE INTERVAL FOR THE AGE TEST
+# USE: confint() function on the test result
+# DISPLAY: confidence interval
+confint(age_one_sample_test)
+```
+
+### 3. Two-Sample t-Tests
+
+Compare means between two groups.
+
+```{r}
+# COMPARE MEAN AGE BETWEEN MALES AND FEMALES
+# USE A HYPOTHESIS TEST
+# USE: svyttest() with formula [Age] ~ [Gender]
+# FILTER: remove missing values
+# SAVE AS: age_gender_test
+# DISPLAY: test results
+age_gender_test <- anes_design %>%
+  filter(!is.na(Age), !is.na(Gender)) %>%
+  svyttest(formula = Age ~ Gender, design = .)
+
+age_gender_test
+```
+
+```{r}
+# CALCULATE GROUPED MEANS FOR AGE BY GENDER
+# SHOW CONFIDENCE INTERVALS FOR THE GROUP MEANS
+# GROUP BY: [Gender]
+# DISPLAY: results with 2 decimal places
+anes_design %>%
+  filter(!is.na(Age), !is.na(Gender)) %>%
+  group_by(Gender) %>%
+  summarize(mean_age = survey_mean(Age, vartype = "ci")) %>%
+  knitr::kable(digits = 2)
+```
+
+### 4. One-Sample Proportion Tests
+
+```{r}
+# EXAMINE THE PROPORTION WHO VOTED IN 2020
+# GROUP BY: [VotedPres] (voting status)
+# USE: survey_prop() to see current proportions
+# FILTER: remove missing values
+anes_design %>%
+  filter(!is.na(VotedPres2020)) %>%
+  group_by(VotedPres2020) %>%
+  summarize(prop = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+```{r}
+# TEST WHETHER THE VOTING RATE DIFFERS FROM 70%
+# CREATE: voted variable (1 if [VotedPres] == 1, 0 otherwise)
+# USE: svyttest() with formula (voted - 0.70) ~ 0
+# DISPLAY: test results
+voting_prop_test <- anes_design %>%
+  filter(!is.na(VotedPres2020)) %>%
+  mutate(voted = ifelse(VotedPres2020 == 'Yes', 1, 0)) %>%
+  svyttest(formula = voted - 0.70 ~ 0, design = .)
+
+voting_prop_test
+```
+
+```{r}
+# EXTRACT CONFIDENCE INTERVAL FOR VOTING PROPORTION DIFFERENCE
+# USE: confint() on the proportion test
+# DISPLAY: confidence interval
+confint(voting_prop_test)
+```
+
+### 5. Two-Sample Proportion Tests
+
+```{r}
+# COMPARE VOTING RATES BETWEEN COLLEGE AND NON-COLLEGE GRADUATES
+# CREATE: college_grad and voted variables
+# USE: svyttest() with formula voted ~ college_grad
+# DISPLAY: test results
+voting_education_test <- anes_design %>%
+  filter(!is.na(VotedPres2020), !is.na(V201510)) %>%
+  mutate(
+    voted = ifelse(VotedPres2020 == 'Yes', 1, 0),
+    college_grad = ifelse(V201510 >= 4, 1, 0)
+  ) %>%
+  svyttest(formula = voted ~ college_grad, design = .)
+
+voting_education_test
+```
+
+```{r}
+# CALCULATE VOTING PROPORTIONS BY EDUCATION LEVEL
+# GROUP BY: education categories
+# CALCULATE: proportion who voted in each group
+# DISPLAY: results with confidence intervals
+anes_design %>%
+  filter(!is.na(VotedPres2020), !is.na(V201510)) %>%
+  mutate(
+    voted = ifelse(VotedPres2020 == 'Yes', 1, 0),
+    college_grad = ifelse(V201510 >= 4, 1, 0)
+  ) %>%
+  group_by(college_grad) %>%
+  summarize(voting_rate = survey_mean(voted, vartype = "ci")) %>%
+  knitr::kable(digits = 3)
+```
+
+### 6. Chi-Square Tests of Independence
+
+```{r}
+# TEST INDEPENDENCE BETWEEN EDUCATION LEVEL AND VOTING BEHAVIOR
+# USE: svychisq() with formula ~[Education] + [VotedPres2020]
+# FILTER: remove missing values from both variables
+# SAVE AS: education_voting_test
+# DISPLAY: test results
+education_voting_test <- anes_design %>%
+  filter(!is.na(Education), !is.na(VotedPres2020)) %>%
+  svychisq(formula = ~ Education + VotedPres2020, design = .)
+
+education_voting_test
+```
+
+```{r}
+# CREATE A CROSSTAB OF EDUCATION AND VOTING
+# USE: survey functions to create weighted crosstab
+# GROUP BY: both variables
+# CALCULATE: survey_prop() for each combination
+# DISPLAY: results in table format
+anes_design %>%
+  filter(!is.na(Education), !is.na(VotedPres2020)) %>%
+  group_by(Education, VotedPres2020) %>%
+  summarize(prop = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+### 7. Goodness-of-Fit Tests
+
+```{r}
+# EXAMINE THE ESTIMATED EDUCATION DISTRIBUTION FIRST
+# GROUP BY: [Education]
+# USE: survey_prop() to see actual distribution
+# DISPLAY: estimated regional proportions
+anes_design %>%
+  filter(!is.na(Education)) %>%
+  group_by(Education) %>%
+  summarize(prop = survey_prop()) %>%
+  knitr::kable(digits = 3)
+```
+
+```{r}
+# PERFORM GOODNESS-OF-FIT TEST FOR EDUCATION DISTRIBUTION
+# COMPARE: against expected proportions 
+# Bachelor's - 0.3
+# Graduate - 0.10
+# High School - 0.2
+# Less than HS - 0.1
+# Post HS - 0.3
+# SAVE AS: region_gof_test
+# DISPLAY: test results
+region_gof_test <- anes_design %>%
+  filter(!is.na(Education)) %>%
+  svygofchisq(formula = ~ Education, 
+              design = .,
+              p = c(.3,.1,.2,.1,.3))  # Expected proportions
+
+region_gof_test
+```
+
+## Conclusion
+
+In this lab, you practiced applying inferential statistical methods to complex survey data using the ANES 2020 dataset. You learned how to conduct survey-adjusted t-tests, proportion tests, and chi-square tests, and how to interpret the results in the context of survey sampling. These skills are essential for drawing valid conclusions from survey data, accounting for weights, stratification, and clustering. Continue to explore these methods with other variables and datasets to deepen your understanding of survey inference in R.

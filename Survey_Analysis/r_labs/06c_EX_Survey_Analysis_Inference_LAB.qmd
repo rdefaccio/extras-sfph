@@ -1,0 +1,197 @@
+---
+title: "Survey Analysis with R - Inferential Statistics Lab"
+author: "Your Name"
+format: pdf
+---
+
+## Survey Inferential Statistics Lab
+---
+
+In this lab, you will practice conducting inferential statistical tests with survey data using the ANES 2020 dataset. You will learn to perform survey-adjusted hypothesis tests including t-tests, proportion tests, and chi-square tests while properly accounting for the complex survey design.
+
+### 1. Load Libraries and Data
+
+Load the required packages and set up the survey design object.
+
+```{r}
+# LOAD REQUIRED LIBRARIES
+
+```
+
+```{r}
+# IMPORT THE ANES 2020 DATA FROM THE DATA FOLDER
+# SAVE AS: anes_data
+
+```
+
+```{r}
+# CREATE TARGET POPULATION SIZE AND ADJUSTED WEIGHTS
+# SET: us_adult_pop_2020 = 240000000
+# CALCULATE: adjusted_weights using the target population
+# ADD: weight_adj column to anes_data
+
+```
+
+```{r}
+# CREATE THE ANES SURVEY DESIGN OBJECT
+# SAVE AS: anes_design
+# INCLUDE: weights, strata, and cluster variables
+
+```
+
+### 2. One-Sample t-Tests
+
+Test whether population means differ from specified values.
+
+```{r}
+# TEST WHETHER THE MEAN AGE DIFFERS FROM 45 YEARS
+# SAVE AS: age_one_sample_test
+# DISPLAY: test results
+
+```
+
+```{r}
+# EXTRACT THE CONFIDENCE INTERVAL FOR THE AGE TEST
+# DISPLAY: confidence interval
+
+```
+
+```{r}
+# TEST WHETHER THE MEAN POLITICAL INTEREST (V201005) DIFFERS FROM 3
+# FILTER: remove missing values for V201005
+# DISPLAY: test results
+
+```
+
+```{r}
+# EXTRACT THE CONFIDENCE INTERVAL FOR THE POLITICAL INTEREST TEST
+# DISPLAY: confidence interval
+
+```
+
+### 3. Two-Sample t-Tests
+
+Compare means between two groups.
+
+```{r}
+# COMPARE MEAN AGE BETWEEN MALES AND FEMALES
+# USE A HYPOTHESIS TEST
+# FILTER: remove missing values
+# SAVE AS: age_gender_test
+# DISPLAY: test results
+
+```
+
+```{r}
+# CALCULATE GROUP MEANS FOR AGE BY GENDER
+# SHOW CONFIDENCE INTERVALS FOR THE GROUP MEANS
+# GROUP BY: [Gender]
+# DISPLAY: results with 2 decimal places
+
+```
+
+```{r}
+# COMPARE POLITICAL INTEREST BETWEEN COLLEGE AND NON-COLLEGE GRADUATES
+# CREATE: college_grad variable (1 if [Education] >= 4, 0 otherwise)
+# COMPARE: V201005 (political interest) by education groups
+# DISPLAY: test results
+
+```
+
+```{r}
+# CALCULATE POLITICAL INTEREST MEANS BY EDUCATION LEVEL
+# GROUP BY: education categories
+# DISPLAY: results with confidence intervals
+
+```
+
+### 4. One-Sample Proportion Tests
+
+Test whether population proportions differ from specified values.
+
+```{r}
+# EXAMINE THE PROPORTION WHO VOTED IN 2020
+# GROUP BY: [VotedPres2020] (voting status)
+# DISPLAY: current proportions
+# FILTER: remove missing values
+
+```
+
+```{r}
+# TEST WHETHER THE VOTING RATE DIFFERS FROM 70%
+# CREATE: voted variable (1 if [VotedPres2020] == 1, 0 otherwise)
+# DISPLAY: test results
+
+```
+
+```{r}
+# EXTRACT CONFIDENCE INTERVAL FOR VOTING PROPORTION DIFFERENCE
+# DISPLAY: confidence interval
+
+```
+
+### 5. Two-Sample Proportion Tests
+
+Compare proportions between groups.
+
+```{r}
+# COMPARE VOTING RATES BETWEEN COLLEGE AND NON-COLLEGE GRADUATES
+# CREATE: college_grad and voted variables
+# DISPLAY: test results
+
+```
+
+```{r}
+# CALCULATE VOTING PROPORTIONS BY EDUCATION LEVEL
+# GROUP BY: education categories
+# CALCULATE: proportion who voted in each group
+# DISPLAY: results with confidence intervals
+
+```
+
+### 6. Chi-Square Tests of Independence
+
+Test associations between categorical variables.
+
+```{r}
+# TEST INDEPENDENCE BETWEEN EDUCATION LEVEL AND VOTING BEHAVIOR
+# FILTER: remove missing values from both variables
+# SAVE AS: education_voting_test
+# DISPLAY: test results
+
+```
+
+```{r}
+# CREATE A CROSSTAB OF EDUCATION AND VOTING
+# GROUP BY: both variables
+# CALCULATE: proportions for each combination
+# DISPLAY: results in table format
+
+```
+
+### 7. Goodness-of-Fit Tests
+
+Test whether observed distributions match expected distributions.
+
+```{r}
+# EXAMINE THE ESTIMATED EDUCATION DISTRIBUTION FIRST
+# DISPLAY: estimated regional proportions
+
+```
+
+```{r}
+# PERFORM GOODNESS-OF-FIT TEST FOR EDUCATION DISTRIBUTION
+# COMPARE: against expected proportions 
+# Bachelor's - 0.3
+# Graduate - 0.10
+# High School - 0.2
+# Less than HS - 0.1
+# Post HS - 0.3
+# SAVE AS: region_gof_test
+# DISPLAY: test results
+
+```
+
+## Conclusion
+
+In this lab, you practiced applying inferential statistical methods to complex survey data using the ANES 2020 dataset. You learned how to conduct survey-adjusted t-tests, proportion tests, and chi-square tests, and how to interpret the results in the context of survey sampling. These skills are essential for drawing valid conclusions from survey data, accounting for weights, stratification, and clustering. Continue to explore these methods with other variables and datasets to deepen your understanding of survey inference in R.
