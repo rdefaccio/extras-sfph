@@ -113,7 +113,7 @@ Once set, RStudio can push and pull to GitHub without prompting you for credenti
 ------------------------------------------------------------------------
 
 | Concept | What it is |
-|------------------------------------|------------------------------------|
+|----|----|
 | **Repository (repo)** | A folder tracked by Git. Contains your files plus a hidden `.git/` folder that stores the full history. |
 | **Commit** | A saved snapshot of your staged changes, paired with a message describing what changed and why. |
 | **Branch** | An independent line of development. The default branch is usually called `main`. |
@@ -169,7 +169,7 @@ Once a project is version-controlled, RStudio shows a **Git** tab in the upper-r
 ### Key Elements
 
 | Element | Description |
-|------------------------------------|------------------------------------|
+|----|----|
 | **Staged checkbox** | Tick to include a file in the next commit (equivalent to `git add`). |
 | **Status icons** | `M` = Modified, `A` = Added (new), `D` = Deleted, `?` = Untracked |
 | **Commit button** | Opens the commit dialog where you write your message and finalize the snapshot. |
@@ -324,7 +324,7 @@ Practice the complete workflow end-to-end:
 ------------------------------------------------------------------------
 
 | Action | RStudio UI | `usethis` / terminal equivalent |
-|------------------------|------------------------|------------------------|
+|----|----|----|
 | Initialize Git in existing project | Tools → Project Options → Git/SVN | `usethis::use_git()` |
 | Clone a repo | New Project → Version Control | `git clone <url>` |
 | Stage a file | Tick checkbox in Git pane | `git add <file>` |
